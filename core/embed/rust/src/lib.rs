@@ -23,7 +23,6 @@ mod macros;
 mod align;
 #[cfg(feature = "debug")]
 mod coverage;
-mod error;
 mod io;
 mod maybe_trace;
 #[cfg(feature = "micropython")]
