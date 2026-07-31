@@ -9,6 +9,7 @@ pub mod crc32;
 pub mod curve25519;
 pub mod ed25519;
 mod ffi;
+pub mod hasher;
 pub mod hmac;
 pub mod memory;
 pub mod merkle;
