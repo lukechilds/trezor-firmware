@@ -7,12 +7,15 @@ pub mod aesgcm;
 pub mod cosi;
 pub mod crc32;
 pub mod curve25519;
+pub mod ecdsa;
 pub mod ed25519;
 mod ffi;
+pub mod hasher;
 pub mod hmac;
 pub mod memory;
 pub mod merkle;
 pub mod sha256;
+pub mod sha3;
 pub mod sha512;
 
 #[cfg_attr(feature = "test", derive(core::fmt::Debug))]

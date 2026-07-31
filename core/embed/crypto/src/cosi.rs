@@ -39,7 +39,10 @@ fn select_keys(
     let mut selected_keys = Vec::new();
     for key in keys {
         if sigmask & 1 != 0 {
-            if selected_keys.push(*key).is_err() {
+            let result = selected_keys.push(*key);
+            if result.is_err() {
+                // selected_keys is sized to MAX_PUBKEYS.
+                // if the push overflows, means there's too many pubkeys selected.
                 return Err(Error::InvalidSigmask);
             }
         }
