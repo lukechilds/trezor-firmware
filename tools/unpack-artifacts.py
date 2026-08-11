@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 
 
-@click.command()
+@click.command(help=__doc__)
 @click.argument(
     "artifact_dir", type=click.Path(exists=True, file_okay=False, dir_okay=True)
 )
@@ -49,10 +49,10 @@ def main(
     translations_dir = Path(translations_dir)
 
     releases = json.loads(releases_json.read_text())["firmware"]
-    latest = max(map(lambda s: [int(n) for n in s.split(".")], releases.keys()))
-    latest = ".".join(str(n) for n in latest)
+    latest, models = max(
+        releases.items(), key=lambda item: [int(n) for n in item[0].split(".")]
+    )
     click.echo(f"Version: {latest}")
-    models = sorted(releases[latest])
     click.echo(f"Models: {', '.join(models)}")
 
     for model in models:
@@ -90,13 +90,10 @@ def main(
         model_dir = output_dir / "unsigned" / "translations" / model.lower()
         model_dir.mkdir(parents=True, exist_ok=True)
 
-        for f in translations_dir.iterdir():
+        for f in translations_dir.glob(f"translation-{model}-*-unsigned.bin"):
             fname = f.name
-            if fname.startswith(f"translation-{model}-") and fname.endswith(
-                "-unsigned.bin"
-            ):
-                click.echo(f"{f} -> {model_dir / fname}")
-                shutil.copy(f, model_dir / fname)
+            click.echo(f"{f} -> {model_dir / fname}")
+            shutil.copy(f, model_dir / fname)
 
 
 if __name__ == "__main__":
