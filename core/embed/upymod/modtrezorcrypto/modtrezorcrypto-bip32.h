@@ -114,6 +114,10 @@ static mp_obj_t mod_trezorcrypto_HDNode_make_new(const mp_obj_type_t *type,
   if (NULL == curve) {
     mp_raise_ValueError(MP_ERROR_TEXT("curve_name is invalid"));
   }
+  if (32 == private_key.len &&
+      !hdnode_validate_private_key(curve, private_key.buf)) {
+    mp_raise_ValueError(MP_ERROR_TEXT("private_key is invalid"));
+  }
 
   mp_obj_HDNode_t *o = mp_obj_malloc_with_finaliser(mp_obj_HDNode_t, type);
   o->fingerprint = fingerprint;

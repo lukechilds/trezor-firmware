@@ -1971,6 +1971,93 @@ START_TEST(test_bip32_vector_4) {
 }
 END_TEST
 
+// Base58Check-encodes a 78-byte extended key with the given key material.
+static void build_xkey(uint32_t version, const uint8_t *key33, char *str,
+                       size_t strsize) {
+  uint8_t node_data[78] = {0};
+  node_data[0] = version >> 24;
+  node_data[1] = version >> 16;
+  node_data[2] = version >> 8;
+  node_data[3] = version;
+  node_data[4] = 1;                   // depth
+  memset(node_data + 13, 0x42, 32);   // chain code
+  memcpy(node_data + 45, key33, 33);  // key material
+  base58_encode_check(node_data, sizeof(node_data), HASHER_SHA2D, str, strsize);
+}
+
+START_TEST(test_bip32_deserialize_invalid) {
+  char str[XPUB_MAXLEN] = {0};
+  uint8_t key[33] = {0};
+  HDNode node = {0};
+
+  // secp256k1 group order
+  const uint8_t *order = fromhex(
+      "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+  uint8_t order_minus_one[32] = {0};
+  memcpy(order_minus_one, order, 32);
+  order_minus_one[31] -= 1;
+
+  // private key must be in [1, order-1]
+  memzero(key, sizeof(key));
+  build_xkey(VERSION_PRIVATE, key, str, sizeof(str));
+  ck_assert_int_eq(hdnode_deserialize_private(str, VERSION_PRIVATE,
+                                              SECP256K1_NAME, &node, NULL),
+                   -5);
+
+  memzero(key, sizeof(key));
+  memcpy(key + 1, order, 32);
+  build_xkey(VERSION_PRIVATE, key, str, sizeof(str));
+  ck_assert_int_eq(hdnode_deserialize_private(str, VERSION_PRIVATE,
+                                              SECP256K1_NAME, &node, NULL),
+                   -5);
+
+  memzero(key, sizeof(key));
+  memcpy(key + 1, order_minus_one, 32);
+  build_xkey(VERSION_PRIVATE, key, str, sizeof(str));
+  ck_assert_int_eq(hdnode_deserialize_private(str, VERSION_PRIVATE,
+                                              SECP256K1_NAME, &node, NULL),
+                   0);
+  ck_assert_mem_eq(node.private_key, order_minus_one, 32);
+
+  // public key must be a compressed point on the curve
+  memzero(key, sizeof(key));
+  key[0] = 0x02;
+  key[32] = 0x05;  // x^3 + 7 is not a quadratic residue for x = 5
+  build_xkey(VERSION_PUBLIC, key, str, sizeof(str));
+  ck_assert_int_eq(hdnode_deserialize_public(str, VERSION_PUBLIC,
+                                             SECP256K1_NAME, &node, NULL),
+                   -5);
+  // hdnode_from_xpub() deliberately does not do this check -- an off-curve
+  // point is rejected by hdnode_public_ckd() before any point arithmetic
+  ck_assert_int_eq(
+      hdnode_from_xpub(1, 0, node.chain_code, key, SECP256K1_NAME, &node), 1);
+  ck_assert_int_eq(hdnode_public_ckd(&node, 0), 0);
+
+  memset(key, 0xff, sizeof(key));  // x >= p
+  key[0] = 0x02;
+  build_xkey(VERSION_PUBLIC, key, str, sizeof(str));
+  ck_assert_int_eq(hdnode_deserialize_public(str, VERSION_PUBLIC,
+                                             SECP256K1_NAME, &node, NULL),
+                   -5);
+
+  // a genuine public key still round-trips
+  HDNode seeded = {0};
+  hdnode_from_seed(fromhex("000102030405060708090a0b0c0d0e0f"), 16,
+                   SECP256K1_NAME, &seeded);
+  ck_assert_int_eq(hdnode_fill_public_key(&seeded), 0);
+  build_xkey(VERSION_PUBLIC, seeded.public_key, str, sizeof(str));
+  ck_assert_int_eq(hdnode_deserialize_public(str, VERSION_PUBLIC,
+                                             SECP256K1_NAME, &node, NULL),
+                   0);
+  ck_assert_mem_eq(node.public_key, seeded.public_key, 33);
+
+  // an unknown curve name must not be dereferenced
+  ck_assert_int_eq(
+      hdnode_deserialize_public(str, VERSION_PUBLIC, "foobar", &node, NULL),
+      -4);
+}
+END_TEST
+
 START_TEST(test_bip32_compare) {
   HDNode node1, node2, node3;
   int i, r;
@@ -12196,6 +12283,7 @@ Suite *test_suite(void) {
   tcase_add_test(tc, test_bip32_vector_2);
   tcase_add_test(tc, test_bip32_vector_3);
   tcase_add_test(tc, test_bip32_vector_4);
+  tcase_add_test(tc, test_bip32_deserialize_invalid);
   tcase_add_test(tc, test_bip32_compare);
   tcase_add_test(tc, test_bip32_cache_1);
   tcase_add_test(tc, test_bip32_cache_2);

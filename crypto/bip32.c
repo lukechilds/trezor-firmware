@@ -86,6 +86,24 @@ const curve_info curve25519_info = {
     .hasher_script = HASHER_SHA2,
 };
 
+bool hdnode_validate_private_key(const curve_info *curve,
+                                 const uint8_t *private_key) {
+  if (curve->params == NULL) {
+    // ed25519 and curve25519 accept any 32-byte string as a private key
+    return true;
+  }
+  bool valid = true;
+  bignum256 a = {0};
+  bn_read_be(private_key, &a);
+  if (bn_is_zero(&a)) {  // == 0
+    valid = false;
+  } else if (!bn_is_less(&a, &curve->params->order)) {  // >= order
+    valid = false;
+  }
+  memzero(&a, sizeof(a));
+  return valid;
+}
+
 int hdnode_from_xpub(uint32_t depth, uint32_t child_num,
                      const uint8_t *chain_code, const uint8_t *public_key,
                      const char *curve, HDNode *out) {
@@ -110,24 +128,11 @@ int hdnode_from_xpub(uint32_t depth, uint32_t child_num,
 int hdnode_from_xprv(uint32_t depth, uint32_t child_num,
                      const uint8_t *chain_code, const uint8_t *private_key,
                      const char *curve, HDNode *out) {
-  bool failed = false;
   const curve_info *info = get_curve_by_name(curve);
   if (info == 0) {
-    failed = true;
-  } else if (info->params) {
-    bignum256 a = {0};
-    bn_read_be(private_key, &a);
-    if (bn_is_zero(&a)) {  // == 0
-      failed = true;
-    } else {
-      if (!bn_is_less(&a, &info->params->order)) {  // >= order
-        failed = true;
-      }
-    }
-    memzero(&a, sizeof(a));
+    return 0;
   }
-
-  if (failed) {
+  if (!hdnode_validate_private_key(info, private_key)) {
     return 0;
   }
 
@@ -720,7 +725,6 @@ size_t hdnode_serialize_private(const HDNode *node, uint32_t fingerprint,
   return hdnode_serialize(node, fingerprint, version, true, str, strsize);
 }
 
-// check for validity of curve point in case of public data not performed
 static int hdnode_deserialize(const char *str, uint32_t version,
                               bool use_private, const char *curve, HDNode *node,
                               uint32_t *fingerprint) {
@@ -728,6 +732,10 @@ static int hdnode_deserialize(const char *str, uint32_t version,
   uint8_t node_data[78] = {0};
   memzero(node, sizeof(HDNode));
   node->curve = get_curve_by_name(curve);
+  if (node->curve == NULL) {
+    ret = -4;  // invalid curve
+    goto cleanup;
+  }
   if (base58_decode_check(str, node->curve->hasher_base58, node_data,
                           sizeof(node_data)) != sizeof(node_data)) {
     ret = -1;
@@ -744,12 +752,29 @@ static int hdnode_deserialize(const char *str, uint32_t version,
       ret = -2;
       goto cleanup;
     }
+    if (!hdnode_validate_private_key(node->curve, node_data + 46)) {
+      ret = -5;  // invalid key
+      goto cleanup;
+    }
     memcpy(node->private_key, node_data + 46, 32);
     memzero(node->public_key, sizeof(node->public_key));
     node->is_public_key_set = false;
   } else {
+    const uint8_t *pubkey = node_data + 45;
+    // ed25519 and curve25519 accept any 33-byte string as a public key
+    if (node->curve->params != NULL) {
+      curve_point point = {0};
+      // 0x04 would make ecdsa_read_pubkey() read past the end of node_data
+      bool valid = (pubkey[0] == 0x02 || pubkey[0] == 0x03) &&
+                   ecdsa_read_pubkey(node->curve->params, pubkey, &point);
+      memzero(&point, sizeof(point));
+      if (!valid) {
+        ret = -5;  // invalid key
+        goto cleanup;
+      }
+    }
     memzero(node->private_key, sizeof(node->private_key));
-    memcpy(node->public_key, node_data + 45, 33);
+    memcpy(node->public_key, pubkey, 33);
     node->is_public_key_set = true;
   }
   node->depth = node_data[4];
