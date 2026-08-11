@@ -1,5 +1,7 @@
 # Logging in Modular Apps
 
+This document covers the logging facilities available to modular apps built with the Trezor App SDK: the log macros themselves, how log levels are controlled at both build time and runtime, how log output is formatted in the emulator, and how to trace error origins in release builds.
+
 ## Log Macros
 
 Four macros are available for logging at different severity levels:
@@ -8,7 +10,6 @@ Four macros are available for logging at different severity levels:
 - `info!` — general informational messages
 - `warn!` — non-fatal issues worth attention
 - `error!` — logs an error message
-
 
 All values passed to log macros must implement the `uDebug` trait. Note that some standard types require conversion before they can be logged — for example, `String` must be converted to `&str` via `.as_str()`.
 
@@ -26,7 +27,6 @@ info!("Message: {:?}", msg.as_str());
 
 // Similarly for other non-uDebug types, convert to a supported form first
 ```
-
 
 ---
 
@@ -47,20 +47,19 @@ This automatically enables the corresponding `feature_<level>` Cargo feature —
 
 > **Note:** On hardware, memory is limited. Prefer higher log levels (e.g., `warning`) in production builds.
 
-
 ---
 
 ## Log Format in the Emulator
 
 In the emulator, each log message is prefixed with a timestamp, the **crate name**, and the **relative path** to the module where it was emitted, followed by the severity level:
 
-```
+```sh
 <timestamp> <crate>::<path/to/module> <LEVEL> <message>
 ```
 
 For example:
 
-```
+```sh
 5.248 apps.trezorapp.run ERR Failed to get public key bytes due to exception: format string needs more arguments
 5.248 apps.trezorapp.run DBG Serializing crypto result
 5.248 apps.trezorapp.run DBG Sending crypto result
@@ -68,7 +67,6 @@ For example:
 ```
 
 Messages related to the modular app `apps.trezorapp.run` (core app services + modular app orchestration ), `<app_name>` (e.g. `tron`) or `trezor-app-sdk` for SDK-internal messages.
-
 
 ---
 
@@ -84,12 +82,12 @@ trezorctl debug set-log-filter <filter>
 
 The filter string is a sequence of rules parsed left-to-right, separated by commas. Each rule has the form:
 
-```
+```sh
 <op>[<level>]<module>[*]
 ```
 
 | Part | Description |
-|------|-------------|
+| ------ | ------------- |
 | `op` | `+` to include, `-` to exclude |
 | `level` | Optional digit `1`–`4` → `ERR`/`WARN`/`INF`/`DBG`; defaults to `DBG` for `+`, `ERR` for `-` |
 | `module` | Matched against the log source name; trailing `*` is a wildcard |
@@ -101,31 +99,37 @@ Rules are applied in order — later rules override earlier ones for matching so
 ### Examples
 
 **Show only your app (all levels):**
+
 ```sh
 trezorctl debug set-log-filter "+tron*,-*"
 ```
 
 **Show only SDK logs (all levels):**
+
 ```sh
 trezorctl debug set-log-filter "+trezor-app-sdk*,-*"
 ```
 
 **Show only your app and SDK, suppress everything else:**
+
 ```sh
 trezorctl debug set-log-filter "+tron*,+trezor-app-sdk*,-*"
 ```
 
 **Your app at `DBG`, SDK at `WARN` and above, everything else off:**
+
 ```sh
 trezorctl debug set-log-filter "+4tron*,+2trezor-app-sdk*,-*"
 ```
 
 **Your app at `INFO` and above, SDK errors only, everything else off:**
+
 ```sh
 trezorctl debug set-log-filter "+3tron*,+1trezor-app-sdk*,-*"
 ```
 
 **Suppress only debug noise from core orchestration, keep everything else:**
+
 ```sh
 trezorctl debug set-log-filter "-4apps.trezorapp.run"
 ```
@@ -139,6 +143,7 @@ In release builds, it is not straightforward to trace where an error originates.
 ### 1. Enable the `debug` Feature
 
 Build with `--log-level debug` to compile in the debug feature. This enables two things:
+
 - more verbose log output including file and line information
 - the `ResultExt` trait functionality (see below)
 
@@ -159,7 +164,7 @@ fn my_function() -> Result<(), Error> {
 
 When an error propagates up through `.c()?` calls, each call site is recorded as a `Error::Context` node, forming a chain. The full chain is printed when the error is logged at the top level:
 
-```
+```sh
 Context Error at
 Location: src/my_function.rs:10
 Location: src/caller.rs:42
