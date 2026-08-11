@@ -890,7 +890,6 @@ jobs:
         with:
           pattern: core-firmware-*-*-normal
           path: downloaded-artifacts
-          skip-decompress: true
       - name: Run unpack-artifacts.py
         run: |
           mkdir -p to-upload/firmware

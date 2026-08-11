@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Unpacks artifact archives produced by `core_firmware` jobs in `core.yml` into directory structure used by release tooling.
+Find firmware binaries in artifacts produced by `core_firmware` jobs in the `core.yml` workflow and copy them into directory structure used by release tooling.
 Only models in the latest entry in `common/releases.json` are copied.
 """
 
 import json
 import shutil
-import zipfile
 from pathlib import Path
 
 import click
@@ -61,30 +60,13 @@ def main(
         model_dir.mkdir(parents=True, exist_ok=True)
 
         for coins in ("universal", "btconly"):
-            artifact_zip = artifact_dir / f"core-firmware-{model}-{coins}-normal.zip"
-            if not artifact_zip.exists():
-                # download-artifact adds another directory level
-                artifact_zip = (
-                    artifact_dir
-                    / f"core-firmware-{model}-{coins}-normal"
-                    / f"core-firmware-{model}-{coins}-normal.zip"
-                )
+            source_dir = artifact_dir / f"core-firmware-{model}-{coins}-normal" / "pub"
+            matching = list(source_dir.glob(f"firmware-{model}-*.bin"))
+            assert len(matching) == 1, f"{source_dir}: {matching}"
+            fw_file = matching[0]
 
-            with zipfile.ZipFile(artifact_zip, "r") as z:
-                matching = [
-                    fn
-                    for fn in z.namelist()
-                    if fn.startswith("pub/firmware-") and fn.endswith(".bin")
-                ]
-                assert len(matching) == 1
-                fw_filename = matching[0]
-
-                with z.open(fw_filename, "r") as fw_fh:
-                    fw_filename = Path(fw_filename).name
-                    click.echo(
-                        f"{artifact_zip}[{fw_filename}] -> {model_dir / fw_filename}"
-                    )
-                    (model_dir / fw_filename).write_bytes(fw_fh.read())
+            click.echo(f"{fw_file} -> {model_dir / fw_file.name}")
+            shutil.copy(fw_file, model_dir / fw_file.name)
 
         # translations
         model_dir = output_dir / "unsigned" / "translations" / model.lower()
