@@ -1014,6 +1014,12 @@ access_violation:
 }
 
 uint8_t ble_get_bond_list__verified(bt_le_addr_t *bonds, size_t count) {
+  // `ble_get_bond_list()` never writes more than `BLE_MAX_BONDS` entries.
+  // Rejecting larger counts also keeps the size below from overflowing.
+  if (count > BLE_MAX_BONDS) {
+    goto access_violation;
+  }
+
   if (!probe_write_access(bonds, sizeof(bt_le_addr_t) * count)) {
     goto access_violation;
   }
