@@ -114,14 +114,12 @@ impl<'a, T: Into<u16> + Copy> IpcRemote<'a, T> {
     ) -> Result<IpcMessage<'a>, Error<'a>> {
         let service_id = service.into();
         self.send(service, message)?;
-        loop {
-            let reply = self.receive(timeout)?;
+        let reply = self.receive(timeout)?;
 
-            if reply.service() != service_id {
-                return Err(Error::UnexpectedService(reply));
-            } else {
-                return Ok(reply);
-            }
+        if reply.service() != service_id {
+            Err(Error::UnexpectedService(reply))
+        } else {
+            Ok(reply)
         }
     }
 
@@ -142,7 +140,10 @@ impl<'a, T: Into<u16> + Copy> IpcRemote<'a, T> {
 /// - `$bufsize` — The buffer size in **bytes**; internally rounded to `usize` alignment.
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
+/// // `ignore`d: expands to `$crate::ipc::...`, and `ipc` is private, so this
+/// // only compiles from inside the sdk crate itself (see `lib.rs`'s own
+/// // `static_service!` invocation) — not from an external doctest crate.
 /// use trezor_app_sdk::{static_service, service::CoreIpcService};
 /// static_service!(CORE_REMOTE, CoreApp, CoreIpcService, 4096);
 /// ```

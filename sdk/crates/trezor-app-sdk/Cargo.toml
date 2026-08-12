@@ -5,6 +5,7 @@ version = "0.1.0"
 edition = "2024"
 description = "no_std SDK for developing Trezor extapps in Rust"
 license = "GPL-3.0-only"
+exclude = ["supply-chain/"]
 
 [lib]
 crate-type = ["rlib"]
@@ -34,8 +35,14 @@ debug = []
 
 app = ["rkyv/alloc", "rkyv/bytecheck", "embedded_alloc"]
 
+# Enables use of unstable (nightly-only) language/library features
+# (`core_intrinsics`, `lang_items`). Required for the default panic/abort
+# machinery under the `debug` feature. Disable on stable toolchains; the
+# affected code paths fall back to stable-compatible implementations.
+nightly = []
 
-default = ["app"]
+
+default = ["app", "nightly"]
 
 # --------------------------------------------------------------------------
 # Selectable features

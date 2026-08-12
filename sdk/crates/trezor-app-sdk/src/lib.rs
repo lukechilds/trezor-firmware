@@ -8,6 +8,10 @@
 //!          Required for extapps / standalone app binaries.
 //! - `debug`: Enables debug logging and richer error context
 //! - `test`: Enables std-based testing utilities
+//! - `nightly`: Enables unstable (nightly-only) language/library features
+//!              used by the default panic/abort machinery. Default-enabled;
+//!              disable on stable toolchains to fall back to stable-compatible
+//!              implementations.
 //!
 //! Without `app`, only `structs` (shared API types) are available — suitable
 //! for the core app which only needs to work with the API structs.
@@ -15,8 +19,12 @@
 #![cfg_attr(not(feature = "test"), no_std)]
 #![allow(internal_features)]
 #![allow(dead_code)]
-#![feature(core_intrinsics)]
-#![cfg_attr(all(feature = "debug", not(feature = "test")), feature(lang_items))]
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+#![cfg_attr(
+    all(feature = "debug", not(feature = "test"), feature = "nightly"),
+    feature(lang_items)
+)]
+#![warn(missing_docs)]
 
 // Always available: shared API structs used by both core app and extapps
 mod structs;

@@ -9,6 +9,20 @@ use crate::unwrap;
 
 pub const TREZOR_API_SUPPORTED_VERSION: u32 = 1;
 
+/// Terminates execution immediately.
+///
+/// Uses the `core_intrinsics` abort intrinsic under the `nightly` feature;
+/// falls back to a halting loop on stable toolchains.
+#[cfg(feature = "nightly")]
+fn abort() -> ! {
+    abort();
+}
+
+#[cfg(not(feature = "nightly"))]
+fn abort() -> ! {
+    loop {}
+}
+
 unsafe impl Send for ffi::trezor_crypto_v1_t {}
 unsafe impl Sync for ffi::trezor_crypto_v1_t {}
 unsafe impl Send for ffi::trezor_api_v1_t {}
@@ -217,7 +231,7 @@ pub fn system_exit() -> ! {
     }
     // If API is not initialized, or if `system_exit` returns despite not being
     // supposed to, we abort.
-    core::intrinsics::abort();
+    abort();
 }
 
 pub fn system_exit_error(title: &str, message: &str, footer: &str) -> ! {
@@ -235,7 +249,7 @@ pub fn system_exit_error(title: &str, message: &str, footer: &str) -> ! {
     }
     // If API is not initialized, or if `system_exit_error_ex` returns despite
     // not being supposed to, we abort.
-    core::intrinsics::abort();
+    abort();
 }
 
 pub fn system_exit_fatal(message: &str, file: &str, line: i32) -> ! {
@@ -252,7 +266,7 @@ pub fn system_exit_fatal(message: &str, file: &str, line: i32) -> ! {
     }
     // If API is not initialized, or if `system_exit_fatal_ex` returns despite
     // not being supposed to, we abort.
-    core::intrinsics::abort();
+    abort();
 }
 
 pub(crate) fn app_get_heap() -> Result<&'static [u8], ApiError> {

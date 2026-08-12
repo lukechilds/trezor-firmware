@@ -503,7 +503,7 @@ pub fn confirm_value<'a>(confirm_value: ConfirmValue<'a>) -> UiResult {
 /// ```no_run
 /// use trezor_app_sdk::ui::{self, ConfirmValueIntro};
 /// ui::confirm_value_intro(ConfirmValueIntro::new(
-///     "Send ETH", "You are about to send", Some("confirm"), None, None, false, false, None, 1,
+///     "Send ETH", "You are about to send", Some("confirm"), None, None, None, false, false, None, 1,
 /// ))?;
 /// # Ok::<(), trezor_app_sdk::Error>(())
 /// ```
@@ -729,7 +729,7 @@ pub fn confirm_with_info<'a>(confirm_with_info: ConfirmWithInfo<'a>) -> UiResult
 /// ```no_run
 /// use trezor_app_sdk::ui::{self, ShowAddress, Property};
 /// let props: &[Property] = &[];
-/// ui::show_address(ShowAddress::new("Receive", "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", None, None, None, Some("show_addr"), props, false, 1))?;
+/// ui::show_address(ShowAddress::new("Receive", "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", None, None, None, Some("show_addr"), props, false, 1, false))?;
 /// # Ok::<(), trezor_app_sdk::Error>(())
 /// ```
 pub fn show_address<'a>(show_address: ShowAddress<'a>) -> UiResult {

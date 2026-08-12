@@ -288,13 +288,13 @@ fn panic_handler(info: &core::panic::PanicInfo<'_>) -> ! {
     low_level_api::system_exit_fatal(msg, file, line);
 }
 
-#[cfg(all(feature = "debug", not(feature = "test")))]
+#[cfg(all(feature = "debug", not(feature = "test"), feature = "nightly"))]
 #[lang = "eh_personality"]
 fn eh_personality() -> ! {
     loop {}
 }
 
-#[cfg(all(feature = "debug", not(feature = "test")))]
+#[cfg(all(feature = "debug", not(feature = "test"), feature = "nightly"))]
 #[unsafe(no_mangle)]
 unsafe extern "C" fn _Unwind_Resume() {
     unsafe { core::intrinsics::unreachable() };
