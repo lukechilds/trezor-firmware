@@ -2,6 +2,8 @@
 name = "modular-xtask"
 version = "0.1.0"
 edition = "2024"
+license = "GPL-3.0-only"
+exclude = ["supply-chain/"]
 
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }

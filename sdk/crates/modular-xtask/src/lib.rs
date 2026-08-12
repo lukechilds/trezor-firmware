@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 pub mod args;
 pub mod armv8m;
 pub mod binary;
