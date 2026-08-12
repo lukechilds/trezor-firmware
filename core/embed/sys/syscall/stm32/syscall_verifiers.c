@@ -671,7 +671,8 @@ access_violation:
 
 #ifdef USE_TELEMETRY
 bool telemetry_get__verified(telemetry_data_t *out) {
-  if (!probe_write_access(out, sizeof(*out))) {
+  // NULL out is allowed and only queries whether telemetry is available
+  if (!probe_write_access_opt(out, sizeof(*out))) {
     goto access_violation;
   }
 
