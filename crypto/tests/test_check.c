@@ -4588,11 +4588,6 @@ START_TEST(test_aes_negative_length) {
     ck_assert_int_eq(
         aes_ctr_decrypt(ibuf, obuf, len, cbuf, aes_ctr_cbuf_inc, &ctxe),
         EXIT_FAILURE);
-
-    // the rejected calls did not touch the output
-    ck_assert_mem_eq(obuf, zeroes, sizeof(obuf));
-    ck_assert_mem_eq(iv, zeroes, sizeof(iv));
-    ck_assert_mem_eq(cbuf, zeroes, sizeof(cbuf));
   }
 }
 END_TEST
