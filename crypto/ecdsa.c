@@ -936,18 +936,35 @@ void compress_coords(const curve_point *cp, uint8_t *compressed) {
   bn_write_be(&cp->x, compressed + 1);
 }
 
-void uncompress_coords(const ecdsa_curve *curve, uint8_t odd,
-                       const bignum256 *x, bignum256 *y) {
+int uncompress_coords(const ecdsa_curve *curve, uint8_t odd, const bignum256 *x,
+                      bignum256 *y) {
+  bignum256 y_2 = {0}, y_2_check = {0};
+
   // y^2 = x^3 + a*x + b
-  memcpy(y, x, sizeof(bignum256));       // y is x
-  bn_multiply(x, y, &curve->prime);      // y is x^2
-  bn_subi(y, -curve->a, &curve->prime);  // y is x^2 + a
-  bn_multiply(x, y, &curve->prime);      // y is x^3 + ax
-  bn_add(y, &curve->b);                  // y is x^3 + ax + b
-  bn_sqrt(y, &curve->prime);             // y = sqrt(y)
+  memcpy(&y_2, x, sizeof(bignum256));         // y_2 is x
+  bn_multiply(x, &y_2, &curve->prime);        // y_2 is x^2
+  bn_subi(&y_2, -curve->a, &curve->prime);    // y_2 is x^2 + a
+  bn_multiply(x, &y_2, &curve->prime);        // y_2 is x^3 + ax
+  bn_addmod(&y_2, &curve->b, &curve->prime);  // y_2 is x^3 + ax + b
+  bn_mod(&y_2, &curve->prime);
+
+  bn_copy(&y_2, y);
+  bn_sqrt(y, &curve->prime);  // y = sqrt(y_2)
+
+  // bn_sqrt() returns a meaningless value if y_2 is not a quadratic residue
+  bn_copy(y, &y_2_check);
+  bn_multiply(y, &y_2_check, &curve->prime);  // y_2_check is y^2
+  bn_mod(&y_2_check, &curve->prime);
+  if (!bn_is_equal(&y_2_check, &y_2)) {
+    bn_zero(y);  // x is invalid (non-residue) -> y set to 0
+    return 0;
+  }
+
   if ((odd & 0x01) != (y->val[0] & 1)) {
     bn_subtract(&curve->prime, y, y);  // y = -y
   }
+
+  return 1;
 }
 
 int ecdsa_read_pubkey(const ecdsa_curve *curve, const uint8_t *pub_key,
@@ -962,7 +979,9 @@ int ecdsa_read_pubkey(const ecdsa_curve *curve, const uint8_t *pub_key,
   }
   if (pub_key[0] == 0x02 || pub_key[0] == 0x03) {  // compute missing y coords
     bn_read_be(pub_key + 1, &(pub->x));
-    uncompress_coords(curve, pub_key[0], &(pub->x), &(pub->y));
+    if (!uncompress_coords(curve, pub_key[0], &(pub->x), &(pub->y))) {
+      return 0;
+    }
     return ecdsa_validate_pubkey(curve, pub);
   }
   // error
@@ -1050,7 +1069,9 @@ int tc_ecdsa_recover_pub_from_sig(const ecdsa_curve *curve, uint8_t *pub_key,
     }
   }
   // compute y from x
-  uncompress_coords(curve, recid & 1, &cp.x, &cp.y);
+  if (!uncompress_coords(curve, recid & 1, &cp.x, &cp.y)) {
+    return 1;
+  }
   if (!ecdsa_validate_pubkey(curve, &cp)) {
     return 1;
   }
