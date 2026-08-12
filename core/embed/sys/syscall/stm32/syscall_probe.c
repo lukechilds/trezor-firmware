@@ -43,8 +43,10 @@ bool probe_read_access(const void *addr, size_t len) {
     return false;
   }
 
+  // NULL is not part of any applet area. Syscall arguments that are optional
+  // by contract must use `probe_read_access_opt()` instead.
   if (addr == NULL) {
-    return true;
+    return false;
   }
 
   // Address overflow check
@@ -93,8 +95,10 @@ bool probe_write_access(void *addr, size_t len) {
     return false;
   }
 
+  // NULL is not part of any applet area. Syscall arguments that are optional
+  // by contract must use `probe_write_access_opt()` instead.
   if (addr == NULL) {
-    return true;
+    return false;
   }
 
   // Address overflow check
@@ -122,8 +126,14 @@ bool probe_write_access(void *addr, size_t len) {
 bool probe_execute_access(const void *addr) {
   applet_t *applet = syscall_get_context();
 
+  if (applet == NULL) {
+    return false;
+  }
+
+  // NULL is not part of any applet area. Syscall arguments that accept
+  // NULL by contract must use `probe_execute_access_opt()` instead.
   if (addr == NULL) {
-    return true;
+    return false;
   }
 
   // Check if the first 4 bytes at the address are within
