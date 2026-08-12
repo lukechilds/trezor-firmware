@@ -8,6 +8,14 @@
 	protostyle protostyle_check \
 	defs_check \
 	ruststyle ruststyle_check \
+	sdk_fmt sdk_fmt_check \
+	sdk_check sdk_clippy \
+	sdk_test sdk_doctest sdk_doc \
+	sdk_audit sdk_vet \
+	sdk_fmt sdk_fmt_check \
+	sdk_check sdk_clippy \
+	sdk_test sdk_doctest sdk_doc \
+	sdk_audit sdk_vet \
 	typecheck pyright \
 	mocks mocks_check \
 	templates templates_check \
@@ -156,7 +164,7 @@ ruststyle: ## apply code style on rust sources
 	make -C rust style
 	xtask modular fmt
 	@cd sdk/crates/modular-xtask ; cargo fmt
-	@cd sdk/crates/trezor-app-sdk ; cargo fmt
+	make sdk_fmt
 
 ruststyle_check: ## run code style check on rust sources
 	@echo [RUSTFMT]
@@ -164,8 +172,50 @@ ruststyle_check: ## run code style check on rust sources
 	make -C rust style_check
 	xtask modular fmt-check
 	@cd sdk/crates/modular-xtask ; cargo fmt -- --check
+	make sdk_fmt_check
+
+## sdk commands:
+
+sdk_fmt: ## apply code style on the trezor-app-sdk crate
+	@echo [SDK-RUSTFMT]
+	@cd sdk/crates/trezor-app-sdk ; cargo fmt
+
+sdk_fmt_check: ## run code style check on the trezor-app-sdk crate
+	@echo [SDK-RUSTFMT]
 	@cd sdk/crates/trezor-app-sdk ; cargo fmt -- --check
 
+sdk_check: ## run cargo check on the trezor-app-sdk crate across its feature sets
+	@echo [SDK-CHECK]
+	@cd sdk/crates/trezor-app-sdk ; cargo check
+	@cd sdk/crates/trezor-app-sdk ; cargo check --no-default-features
+	@cd sdk/crates/trezor-app-sdk ; cargo check --features debug
+	@cd sdk/crates/trezor-app-sdk ; cargo check --features test
+	@cd sdk/crates/trezor-app-sdk ; cargo check --all-features
+
+sdk_clippy: ## run clippy on the trezor-app-sdk crate
+	@echo [SDK-CLIPPY]
+	@cd sdk/crates/trezor-app-sdk ; cargo clippy --no-default-features
+	@cd sdk/crates/trezor-app-sdk ; cargo clippy --all-features
+
+sdk_test: ## run unit tests for the trezor-app-sdk crate
+	@echo [SDK-TEST]
+	@cd sdk/crates/trezor-app-sdk ; cargo test --lib --features test
+
+sdk_doctest: ## run doc tests for the trezor-app-sdk crate
+	@echo [SDK-DOCTEST]
+	@cd sdk/crates/trezor-app-sdk ; cargo test --doc --features test
+
+sdk_doc: ## build documentation for the trezor-app-sdk crate
+	@echo [SDK-DOC]
+	@cd sdk/crates/trezor-app-sdk ; cargo doc --no-deps --all-features
+
+sdk_audit: ## run cargo audit on the trezor-app-sdk crate's dependencies
+	@echo [SDK-AUDIT]
+	@cd sdk/crates/trezor-app-sdk ; cargo audit
+
+sdk_vet: ## run cargo vet on the trezor-app-sdk crate's dependencies
+	@echo [SDK-VET]
+	@cd sdk/crates/trezor-app-sdk ; cargo vet --locked
 
 typecheck: pyright
 

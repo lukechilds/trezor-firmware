@@ -1,0 +1,101 @@
+name: SDK
+
+# Release-gating checks for the `trezor-app-sdk` crate (sdk/crates/trezor-app-sdk),
+# the no_std runtime library modular Trezor apps link against. These must all
+# pass before a release of the crate is cut. See sdk/doc/development.md for
+# background on the crate's role.
+
+on:
+  pull_request:
+    paths:
+      - 'sdk/crates/trezor-app-sdk/**'
+      - '.github/workflows/sdk.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 23 * * *'  # every day @ 23:17
+  push:
+    branches:
+      - 'release/**'
+      - 'secfix/**'
+    paths:
+      - 'sdk/crates/trezor-app-sdk/**'
+
+# cancel any previous runs on the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sdk_fmt_check:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_fmt_check"
+
+  sdk_check:
+    name: Cargo check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_check"
+
+  sdk_clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_clippy"
+
+  sdk_unit_tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_test"
+
+  sdk_doc_tests:
+    name: Doc tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_doctest"
+
+  sdk_doc_build:
+    name: Doc build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_doc"
+
+  sdk_deps_check:
+    name: Dependency check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make sdk_audit"
+      - run: nix-shell --run "make sdk_vet"
