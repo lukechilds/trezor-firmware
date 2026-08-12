@@ -38,6 +38,12 @@ def is_revocation(parameters: dict) -> bool:
     return parameters["delegate"] == "0x0000000000000000000000000000000000000000"
 
 
+# Test vectors validated with Foundry
+# cast wallet sign-auth $ADDRESS --mnemonic $MNEMONIC --mnemonic-derivation-path "m/44'/60'/0'/0/0" --nonce $NONCE --chain $CHAINID
+# To evaluate signature parts: cast from-rlp <result_from_above>
+# format: [chain_id, address, nonce, v, r, s]
+
+
 @parametrize_using_common_fixtures("ethereum/sign_auth_eip7702.json")
 def test_sign_eip7702(session: Session, parameters: dict, result: dict):
     defs = make_defs(parameters)
