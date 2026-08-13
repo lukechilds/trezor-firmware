@@ -120,7 +120,7 @@ macro_rules! obj_type {
      $(attr_fn: $attr_fn:path,)?
      $(call_fn: $call_fn:path,)?
      $(print_fn: $print_fn:path,)?
-     $(parent: $parent:path,)?
+     $(parent: $parent:expr,)?
     ) => {{
         use $crate::micropython::ffi;
 

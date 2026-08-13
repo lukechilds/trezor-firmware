@@ -3,21 +3,6 @@ use core::mem::MaybeUninit;
 use super::error::Error;
 use super::ffi;
 
-/// Raise a micropython exception via NLR jump.
-/// Jumps directly out of the context without running any destructors,
-/// finalizers, etc. This is very likely to break a lot of Rust's assumptions:
-/// in particular, _any_ jumping over Rust code is currently considered
-/// undefined. See full discussion at https://github.com/rust-lang/rfcs/issues/2625
-/// Should only be called at the boundary which would otherwise return to C.
-pub unsafe fn raise_exception(err: Error) -> ! {
-    unsafe {
-        // SAFETY:
-        // - argument must be an exception instance
-        // (err.into_obj() should return the right thing)
-        ffi::nlr_jump(err.into_obj().as_ptr());
-    }
-}
-
 /// Execute `func` while catching MicroPython exceptions. Returns `Ok` in the
 /// successful case, and `Err` with the caught `Obj` in case of a raise.
 pub fn catch_exception<F, T>(mut func: F) -> Result<T, Error>
@@ -77,6 +62,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::exception;
     use super::*;
 
     #[test]
@@ -88,7 +74,7 @@ mod tests {
 
     #[test]
     fn except_catches_raised() {
-        let result = catch_exception(|| unsafe { raise_exception(Error::TypeError) });
+        let result = catch_exception(|| unsafe { exception::TypeError.create().raise() });
         assert!(result.is_err());
     }
 }
