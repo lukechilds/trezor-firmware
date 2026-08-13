@@ -77,6 +77,14 @@ async def sign_tx_eip1559(
         defs.network,
     )
 
+    # Confirm and sign EIP-7702 delegation (may raise on unsupported requests)
+    auth7702_list: list[EthereumAuth7702Tuple] = await _handle_eip7702(
+        msg,
+        keychain,
+        defs,
+    )
+    auth7702_rlp: rlp.RLPList = [i.items for i in auth7702_list]
+
     payment_req_verifier = None
     if msg.payment_req:
         from apps.common.payment_request import PaymentRequestVerifier
@@ -86,14 +94,6 @@ async def sign_tx_eip1559(
             msg.payment_req, slip44_id, keychain, amount_size_bytes=32
         )
 
-    # Confirm and sign EIP-7702 delegation (may raise)
-    auth7702_list: list[EthereumAuth7702Tuple] = await _handle_eip7702(
-        msg,
-        keychain,
-        defs,
-    )
-
-    auth7702_rlp: rlp.RLPList = [i.items for i in auth7702_list]
     sha = _start_digest(msg, auth7702_rlp)
     initial_data = await request_initial_data(msg, sha)
 
