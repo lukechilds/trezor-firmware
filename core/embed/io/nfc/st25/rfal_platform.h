@@ -134,8 +134,8 @@ extern uint8_t globalCommProtectCnt; /* Global Protection Counter provided per
   false /*!< Enable/Disable RFAL support for NFC-V (ISO15693) */
 #define RFAL_FEATURE_T1T \
   false /*!< Enable/Disable RFAL support for T1T (Topaz) */
-#define RFAL_FEATURE_T2T false /*!< Enable/Disable RFAL support for T2T */
-#define RFAL_FEATURE_T4T true  /*!< Enable/Disable RFAL support for T4T */
+#define RFAL_FEATURE_T2T true /*!< Enable/Disable RFAL support for T2T */
+#define RFAL_FEATURE_T4T true /*!< Enable/Disable RFAL support for T4T */
 #define RFAL_FEATURE_ST25TB                         \
   false /*!< Enable/Disable RFAL support for ST25TB \
          */

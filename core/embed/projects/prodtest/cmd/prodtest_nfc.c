@@ -138,18 +138,17 @@ static void prodtest_nfc_read_card(cli_t* cli) {
 
       switch (dev_info.interface) {
         case NFC_DEV_INTERFACE_RF:
-          cli_trace(cli, "NFC Tag Type: RF (%d)", dev_info.interface);
+          cli_trace(cli, "NFC Tag Type: RF");
           break;
         case NFC_DEV_INTERFACE_ISODEP:
-          cli_trace(cli, "NFC Tag Type: ISO-DEP (%d)", dev_info.interface);
+          cli_trace(cli, "NFC Tag Type: ISO-DEP");
           break;
         case NFC_DEV_INTERFACE_UNKNOWN:
         default:
           cli_error(cli, PRODTEST_ERR_NFC_UNEXPECTED,
-                    "NFC Unexpected Tag Type (%d)", dev_info.interface);
+                    "NFC Unknown Tag Type (%d)", dev_info.interface);
           goto cleanup;
       }
-
     } else if (event_flag == NFC_EVENT_DISCONNECTED) {
       cli_trace(cli, "NFC card removed.");
     }

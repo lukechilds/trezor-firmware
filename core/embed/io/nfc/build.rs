@@ -19,6 +19,7 @@ pub fn def_module(lib: &mut CLibrary) -> Result<()> {
                 "nfc/st25/rfal002/source/rfal_nfcb.c",
                 "nfc/st25/rfal002/source/rfal_isoDep.c",
                 "nfc/st25/rfal002/source/rfal_crc.c",
+                "nfc/st25/rfal002/source/rfal_t2t.c",
                 "nfc/st25/rfal002/source/st25r3916/st25r3916.c",
                 "nfc/st25/rfal002/source/st25r3916/st25r3916_com.c",
                 "nfc/st25/rfal002/source/st25r3916/st25r3916_led.c",

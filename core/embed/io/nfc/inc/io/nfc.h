@@ -46,6 +46,7 @@ typedef enum {
 
 /** @brief NFC-A Listen device types */
 typedef enum {
+  NFCA_T2T,
   NFCA_T4T,
   NFCA_UNKNOWN_TYPE,
 } nfc_nfca_listen_device_type_t;

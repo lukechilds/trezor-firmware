@@ -31,6 +31,7 @@
 #include "nfc_poll.h"
 #include "rfal_isoDep.h"
 #include "rfal_nfc.h"
+#include "rfal_t2t.h"
 #include "rfal_utils.h"
 #include "sys/mpu.h"
 
@@ -273,10 +274,12 @@ bool nfc_identify(nfc_dev_info_t *dev_info) {
   ts_t status = nfc_dev_read_info(dev_info);
   TSH_CHECK_OK(status);
 
-  if (((dev_info->type == NFC_DEV_TYPE_A) ||
-       (dev_info->type == NFC_DEV_TYPE_B)) &&
-      (dev_info->interface == NFC_DEV_INTERFACE_ISODEP) &&
-      (dev_info->tag_type == NFCA_T4T)) {
+  if (((dev_info->type == NFC_DEV_TYPE_B) ||
+       ((dev_info->type == NFC_DEV_TYPE_A) &&
+        ((dev_info->tag_type == NFCA_T4T) ||
+         (dev_info->tag_type == NFCA_T2T)))) &&
+      ((dev_info->interface == NFC_DEV_INTERFACE_ISODEP) ||
+       (dev_info->interface == NFC_DEV_INTERFACE_RF))) {
     return true;
   }
 
@@ -293,19 +296,28 @@ bool nfc_check_connection(nfc_dev_info_t *dev_info) {
   }
   last_check_time = ticks();
 
-  ReturnCode err = rfalIsoDepPollPresenceCheckStart();
-  if (err == RFAL_ERR_WRONG_STATE) {
-    return true;
-  } else if (err != RFAL_ERR_NONE) {
+  if (dev_info->interface == NFC_DEV_INTERFACE_ISODEP) {
+    ReturnCode err = rfalIsoDepPollPresenceCheckStart();
+    if (err == RFAL_ERR_WRONG_STATE) {
+      return true;
+    } else if (err != RFAL_ERR_NONE) {
+      return false;
+    }
+
+    do {
+      rfalNfcWorker();
+      err = rfalIsoDepPollGetPresenceCheckStatus();
+    } while (err == RFAL_ERR_BUSY);
+
+    return err == RFAL_ERR_NONE;
+  } else if (dev_info->tag_type == NFCA_T2T) {
+    uint8_t rxBuf[20];
+    uint16_t rxLen = sizeof(rxBuf);
+    ReturnCode err = rfalT2TPollerRead(0x00, rxBuf, sizeof(rxBuf), &rxLen);
+    return err == RFAL_ERR_NONE;
+  } else {
     return false;
   }
-
-  do {
-    rfalNfcWorker();
-    err = rfalIsoDepPollGetPresenceCheckStatus();
-  } while (err == RFAL_ERR_BUSY);
-
-  return err == RFAL_ERR_NONE;
 }
 
 ts_t nfc_transceive(const nfc_apdu_message_t *cmd, nfc_apdu_message_t *resp) {
@@ -339,6 +351,8 @@ static ts_t nfc_dev_read_info(nfc_dev_info_t *dev_info) {
       dev_info->type = NFC_DEV_TYPE_A;
       if (nfc_device->dev.nfca.type == RFAL_NFCA_T4T) {
         dev_info->tag_type = NFCA_T4T;
+      } else if (nfc_device->dev.nfca.type == RFAL_NFCA_T2T) {
+        dev_info->tag_type = NFCA_T2T;
       }
       break;
     case RFAL_NFC_LISTEN_TYPE_NFCB:
