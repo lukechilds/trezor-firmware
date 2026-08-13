@@ -25,7 +25,8 @@ SKIPPED_MESSAGES := Cardano DebugMonero Eos Monero Ontology Ripple SdProtect Tez
 	BleUnpair PaymentNotification Evolu \
 	GetSerialNumber SerialNumber \
 	TelemetryGet Telemetry \
-	TrezorAppLoad TrezorAppLoaded TrezorAppHeaderRequest TrezorAppHeaderAck TrezorAppDataChunkRequest TrezorAppDataChunkAck \
+	TrezorAppLoad TrezorAppLoaded TrezorAppHeaderRequest TrezorAppHeaderAck \
+	TrezorAppRootPacketRequest TrezorAppRootPacketAck TrezorAppDataChunkRequest TrezorAppDataChunkAck \
 	TrezorAppMessage TrezorAppResponse
 
 ifeq ($(BITCOIN_ONLY), 1)
