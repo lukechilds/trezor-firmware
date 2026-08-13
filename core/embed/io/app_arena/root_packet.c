@@ -200,6 +200,17 @@ static const mldsa44_public_key_t * const ROOT_PACKET_KEYS[] = {
 #endif
 };
 
+static int popcount(uint8_t value) {
+  int count = 0;
+  while (value != 0) {
+    if ((value & 1) != 0) {
+      count++;
+    }
+    value >>= 1;
+  }
+  return count;
+}
+
 ts_t root_packet_verify(const void* data, size_t size,
                         root_packet_auth_t** out) {
   TSH_DECLARE;
@@ -221,9 +232,8 @@ ts_t root_packet_verify(const void* data, size_t size,
   TSH_CHECK(auth->timestamp != 0, TS_EBADMSG);
 
   // Calculate the expected size of the authenticated part of the root packet
-  size_t auth_part_size =
-      sizeof(root_packet_auth_t) +
-      sizeof(sha256_digest_t) * __builtin_popcount(auth->ring_mask);
+  size_t auth_part_size = sizeof(root_packet_auth_t) +
+                          sizeof(sha256_digest_t) * popcount(auth->ring_mask);
 
   TSH_CHECK(size == auth_part_size + sizeof(root_packet_unauth_t), TS_EBADMSG);
 
@@ -241,8 +251,7 @@ ts_t root_packet_verify(const void* data, size_t size,
   uint8_t sigmask = unauth->sigmask;
   uint8_t sigmask_inv = 0;  // FIH
 
-  TSH_CHECK(__builtin_popcount(sigmask) == ARRAY_LENGTH(unauth->signature),
-            TS_EBADMSG);
+  TSH_CHECK(popcount(sigmask) == ARRAY_LENGTH(unauth->signature), TS_EBADMSG);
 
   for (int sig_idx = 0; sig_idx < ARRAY_LENGTH(unauth->signature); sig_idx++) {
     // Get the index of the public key in the signature mask
