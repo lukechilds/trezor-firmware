@@ -16,6 +16,10 @@
 	sdk_check sdk_clippy \
 	sdk_test sdk_doctest sdk_doc \
 	sdk_audit sdk_vet \
+	modular_xtask_fmt modular_xtask_fmt_check \
+	modular_xtask_check modular_xtask_clippy \
+	modular_xtask_test modular_xtask_doctest modular_xtask_doc \
+	modular_xtask_audit modular_xtask_vet \
 	typecheck pyright \
 	mocks mocks_check \
 	templates templates_check \
@@ -163,7 +167,7 @@ ruststyle: ## apply code style on rust sources
 	@cd core/embed ; cargo fmt
 	make -C rust style
 	xtask modular fmt
-	@cd sdk/crates/modular-xtask ; cargo fmt
+	make modular_xtask_fmt
 	make sdk_fmt
 
 ruststyle_check: ## run code style check on rust sources
@@ -216,6 +220,45 @@ sdk_audit: ## run cargo audit on the trezor-app-sdk crate's dependencies
 sdk_vet: ## run cargo vet on the trezor-app-sdk crate's dependencies
 	@echo [SDK-VET]
 	@cd sdk/crates/trezor-app-sdk ; cargo vet --locked
+
+## modular-xtask commands:
+
+modular_xtask_fmt: ## apply code style on the modular-xtask crate
+	@echo [MODULAR-XTASK-RUSTFMT]
+	@cd sdk/crates/modular-xtask ; cargo fmt
+
+modular_xtask_fmt_check: ## run code style check on the modular-xtask crate
+	@echo [MODULAR-XTASK-RUSTFMT]
+	@cd sdk/crates/modular-xtask ; cargo fmt -- --check
+
+modular_xtask_check: ## run cargo check on the modular-xtask crate
+	@echo [MODULAR-XTASK-CHECK]
+	@cd sdk/crates/modular-xtask ; cargo check --all-targets
+
+modular_xtask_clippy: ## run clippy on the modular-xtask crate
+	@echo [MODULAR-XTASK-CLIPPY]
+	@cd sdk/crates/modular-xtask ; cargo clippy --all-targets
+
+modular_xtask_test: ## run unit tests for the modular-xtask crate
+	@echo [MODULAR-XTASK-TEST]
+	@cd sdk/crates/modular-xtask ; cargo test --lib
+
+modular_xtask_doctest: ## run doc tests for the modular-xtask crate
+	@echo [MODULAR-XTASK-DOCTEST]
+	@cd sdk/crates/modular-xtask ; cargo test --doc
+
+modular_xtask_doc: ## build documentation for the modular-xtask crate
+	@echo [MODULAR-XTASK-DOC]
+	@cd sdk/crates/modular-xtask ; cargo doc --no-deps
+
+modular_xtask_audit: ## run cargo audit on the modular-xtask crate's dependencies
+	@echo [MODULAR-XTASK-AUDIT]
+	@cd sdk/crates/modular-xtask ; cargo audit
+
+modular_xtask_vet: ## run cargo vet on the modular-xtask crate's dependencies
+	@echo [MODULAR-XTASK-VET]
+	@cd sdk/crates/modular-xtask ; cargo vet --locked
+
 
 typecheck: pyright
 
