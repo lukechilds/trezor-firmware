@@ -30,6 +30,7 @@
 #include <sec/optiga_commands.h>
 #include <sec/optiga_transport.h>
 #include <sys/logging.h>
+#include <sys/rng_use_flags.h>
 #include "der.h"
 #include "ecdsa.h"
 #include "hmac.h"
@@ -493,6 +494,8 @@ optiga_result optiga_get_random(uint8_t *random, size_t random_size) {
   if (ret != OPTIGA_SUCCESS) {
     return ret;
   }
+
+  rng_use_flag_set(RNG_TYPE_OPTIGA);
 
   return process_output_fixedlen(random, random_size);
 }
