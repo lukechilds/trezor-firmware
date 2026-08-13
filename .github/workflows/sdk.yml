@@ -282,7 +282,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/environment
-      - run: nix-shell --run "make extapp_fmt_check"
+      - run: nix-shell --run "uv run make extapp_fmt_check"
 
   extapp_py_style_check:
     name: extapp / Python style check (${{ matrix.app }})
@@ -318,7 +318,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/environment
-      - run: nix-shell --run "make extapp_clippy"
+      - run: nix-shell --run "uv run make extapp_clippy"
 
   extapp_vet:
     name: extapp / Dependency check

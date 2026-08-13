@@ -306,7 +306,6 @@ extapp_vet: ## run cargo vet on all extapps' dependencies
 	@echo [EXTAPP-VET]
 	@cd sdk/apps ; cargo vet --locked
 
-
 typecheck: pyright
 
 pyright:
