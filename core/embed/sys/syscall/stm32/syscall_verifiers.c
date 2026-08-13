@@ -212,7 +212,9 @@ access_violation:
 
 bool ipc_send__verified(systask_id_t remote, uint32_t fn, const void *data,
                         size_t data_size) {
-  if (!probe_read_access(data, data_size)) {
+  // NULL data is allowed for a zero-length message, `ipc_send()` rejects it
+  // for any other size
+  if (!probe_read_access_opt(data, data_size)) {
     goto access_violation;
   }
 
@@ -927,7 +929,8 @@ access_violation:
 #ifdef USE_BLE
 
 bool ble_enter_pairing_mode__verified(const uint8_t *name, size_t name_len) {
-  if (!probe_read_access(name, name_len)) {
+  // NULL name is allowed and keeps the advertising name unchanged
+  if (!probe_read_access_opt(name, name_len)) {
     goto access_violation;
   }
 
@@ -1014,7 +1017,8 @@ access_violation:
 }
 
 bool ble_unpair__verified(const bt_le_addr_t *addr) {
-  if (!probe_read_access(addr, sizeof(*addr))) {
+  // NULL addr is allowed and unpairs the currently connected device
+  if (!probe_read_access_opt(addr, sizeof(*addr))) {
     goto access_violation;
   }
 

@@ -578,11 +578,13 @@ access_violation:
 
 bool backup_ram_read__verified(uint16_t key, void *buffer, size_t buffer_size,
                                size_t *data_size) {
-  if (!probe_write_access(buffer, buffer_size)) {
+  // NULL buffer is allowed and only queries the size, NULL data_size is
+  // allowed and skips reporting it
+  if (!probe_write_access_opt(buffer, buffer_size)) {
     goto access_violation;
   }
 
-  if (!probe_write_access(data_size, sizeof(*data_size))) {
+  if (!probe_write_access_opt(data_size, sizeof(*data_size))) {
     goto access_violation;
   }
 
@@ -598,7 +600,8 @@ access_violation:
 
 bool backup_ram_write__verified(uint16_t key, backup_ram_item_type_t type,
                                 const void *data, size_t data_size) {
-  if (!probe_read_access(data, data_size)) {
+  // NULL data with a zero data_size is the documented way to remove a key
+  if (!probe_read_access_opt(data, data_size)) {
     goto access_violation;
   }
 
