@@ -10444,6 +10444,7 @@ static void test_uncompress_coord_invalid(const ecdsa_curve *curve,
   bn_read_uint32(x_raw, &x);
 
   for (uint8_t odd = 0x02; odd <= 0x03; odd++) {
+    bn_one(&y);
     ck_assert_int_eq(uncompress_coords(curve, odd, &x, &y), 0);
     ck_assert(bn_is_zero(&y));
   }
