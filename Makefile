@@ -12,10 +12,6 @@
 	sdk_check sdk_clippy \
 	sdk_test sdk_doctest sdk_doc \
 	sdk_audit sdk_vet \
-	sdk_fmt sdk_fmt_check \
-	sdk_check sdk_clippy \
-	sdk_test sdk_doctest sdk_doc \
-	sdk_audit sdk_vet \
 	modular_xtask_fmt modular_xtask_fmt_check \
 	modular_xtask_check modular_xtask_clippy \
 	modular_xtask_test modular_xtask_doctest modular_xtask_doc \
@@ -175,7 +171,7 @@ ruststyle_check: ## run code style check on rust sources
 	@cd core/embed ; cargo fmt -- --check
 	make -C rust style_check
 	xtask modular fmt-check
-	@cd sdk/crates/modular-xtask ; cargo fmt -- --check
+	make modular_xtask_fmt_check
 	make sdk_fmt_check
 
 ## sdk commands:

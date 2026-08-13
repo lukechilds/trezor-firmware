@@ -1,14 +1,17 @@
 name: SDK
 
-# Release-gating checks for the `trezor-app-sdk` crate (sdk/crates/trezor-app-sdk),
-# the no_std runtime library modular Trezor apps link against. These must all
-# pass before a release of the crate is cut. See sdk/doc/development.md for
-# background on the crate's role.
+# Release-gating checks for the sdk/ tree: the `trezor-app-sdk` crate
+# (sdk/crates/trezor-app-sdk), the no_std runtime library modular Trezor apps
+# link against, and the `modular-xtask` crate (sdk/crates/modular-xtask), the
+# build/test driver for modular Trezor apps (invoked as `xtask modular <cmd>`,
+# and consumed as a path dependency by core/embed/xtask). These must all pass
+# before a release of either crate is cut. See sdk/doc/development.md for
+# background on their roles.
 
 on:
   pull_request:
     paths:
-      - 'sdk/crates/trezor-app-sdk/**'
+      - 'sdk/crates/**'
       - '.github/workflows/sdk.yml'
   workflow_dispatch:
   schedule:
@@ -18,7 +21,7 @@ on:
       - 'release/**'
       - 'secfix/**'
     paths:
-      - 'sdk/crates/trezor-app-sdk/**'
+      - 'sdk/crates/**'
 
 # cancel any previous runs on the same PR
 concurrency:
@@ -30,7 +33,7 @@ permissions:
 
 jobs:
   sdk_fmt_check:
-    name: Format check
+    name: trezor-app-sdk / Format check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -40,7 +43,7 @@ jobs:
       - run: nix-shell --run "make sdk_fmt_check"
 
   sdk_check:
-    name: Cargo check
+    name: trezor-app-sdk / Cargo check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -50,7 +53,7 @@ jobs:
       - run: nix-shell --run "make sdk_check"
 
   sdk_clippy:
-    name: Clippy
+    name: trezor-app-sdk / Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -60,7 +63,7 @@ jobs:
       - run: nix-shell --run "make sdk_clippy"
 
   sdk_unit_tests:
-    name: Unit tests
+    name: trezor-app-sdk / Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -70,7 +73,7 @@ jobs:
       - run: nix-shell --run "make sdk_test"
 
   sdk_doc_tests:
-    name: Doc tests
+    name: trezor-app-sdk / Doc tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -80,7 +83,7 @@ jobs:
       - run: nix-shell --run "make sdk_doctest"
 
   sdk_doc_build:
-    name: Doc build
+    name: trezor-app-sdk / Doc build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -90,7 +93,7 @@ jobs:
       - run: nix-shell --run "make sdk_doc"
 
   sdk_deps_check:
-    name: Dependency check
+    name: trezor-app-sdk / Dependency check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
@@ -99,3 +102,74 @@ jobs:
       - uses: ./.github/actions/environment
       - run: nix-shell --run "make sdk_audit"
       - run: nix-shell --run "make sdk_vet"
+
+  modular_xtask_fmt_check:
+    name: modular-xtask / Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_fmt_check"
+
+  modular_xtask_check:
+    name: modular-xtask / Cargo check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_check"
+
+  modular_xtask_clippy:
+    name: modular-xtask / Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_clippy"
+
+  modular_xtask_unit_tests:
+    name: modular-xtask / Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_test"
+
+  modular_xtask_doc_tests:
+    name: modular-xtask / Doc tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_doctest"
+
+  modular_xtask_doc_build:
+    name: modular-xtask / Doc build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_doc"
+
+  modular_xtask_deps_check:
+    name: modular-xtask / Dependency check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # actions/checkout@v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - run: nix-shell --run "make modular_xtask_audit"
+      - run: nix-shell --run "make modular_xtask_vet"
