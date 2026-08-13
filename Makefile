@@ -16,6 +16,11 @@
 	modular_xtask_check modular_xtask_clippy \
 	modular_xtask_test modular_xtask_doctest modular_xtask_doc \
 	modular_xtask_audit modular_xtask_vet \
+	extapp_build_firmware extapp_build_emu \
+	extapp_unit_tests extapp_device_tests \
+	extapp_fmt extapp_fmt_check \
+	extapp_py_style extapp_py_style_check \
+	extapp_clippy extapp_vet \
 	typecheck pyright \
 	mocks mocks_check \
 	templates templates_check \
@@ -254,6 +259,52 @@ modular_xtask_audit: ## run cargo audit on the modular-xtask crate's dependencie
 modular_xtask_vet: ## run cargo vet on the modular-xtask crate's dependencies
 	@echo [MODULAR-XTASK-VET]
 	@cd sdk/crates/modular-xtask ; cargo vet --locked
+
+## extapp commands:
+
+EXTAPP ?= tron
+EXTAPP_MODEL ?= t3w1
+EXTAPP_LANG ?= en
+
+extapp_build_firmware: ## build an extapp's firmware (set EXTAPP/EXTAPP_MODEL/EXTAPP_LANG)
+	@echo [EXTAPP-BUILD-FIRMWARE]
+	@xtask modular build -p $(EXTAPP) -m $(EXTAPP_MODEL) --lang $(EXTAPP_LANG)
+
+extapp_build_emu: ## build an extapp's emulator (set EXTAPP/EXTAPP_MODEL/EXTAPP_LANG)
+	@echo [EXTAPP-BUILD-EMU]
+	@xtask modular build -p $(EXTAPP) -m $(EXTAPP_MODEL) --lang $(EXTAPP_LANG) -e
+
+extapp_unit_tests: ## run unit tests for an extapp (set EXTAPP/EXTAPP_MODEL/EXTAPP_LANG)
+	@echo [EXTAPP-UNIT-TESTS]
+	@xtask modular unit-tests -p $(EXTAPP) -m $(EXTAPP_MODEL) --lang $(EXTAPP_LANG)
+
+extapp_device_tests: ## run device tests for an extapp against a universal firmware emulator (set EXTAPP/EXTAPP_MODEL)
+	@echo [EXTAPP-DEVICE-TESTS]
+	@core/emu.py --disable-animation --headless --temporary-profile -c xtask modular device-tests -p $(EXTAPP) -m $(EXTAPP_MODEL) -e
+
+extapp_fmt: ## apply code style on all extapps
+	@echo [EXTAPP-RUSTFMT]
+	@xtask modular fmt
+
+extapp_fmt_check: ## run code style check on all extapps
+	@echo [EXTAPP-RUSTFMT]
+	@xtask modular fmt-check
+
+extapp_py_style: ## apply python style on an extapp's tests (set EXTAPP)
+	@echo [EXTAPP-PYSTYLE]
+	@xtask modular py-style -p $(EXTAPP)
+
+extapp_py_style_check: ## run python style check on an extapp's tests (set EXTAPP)
+	@echo [EXTAPP-PYSTYLE-CHECK]
+	@xtask modular py-style-check -p $(EXTAPP)
+
+extapp_clippy: ## run clippy on an extapp (set EXTAPP/EXTAPP_MODEL/EXTAPP_LANG)
+	@echo [EXTAPP-CLIPPY]
+	@xtask modular clippy -p $(EXTAPP) -m $(EXTAPP_MODEL) --lang $(EXTAPP_LANG)
+
+extapp_vet: ## run cargo vet on all extapps' dependencies
+	@echo [EXTAPP-VET]
+	@cd sdk/apps ; cargo vet --locked
 
 
 typecheck: pyright
