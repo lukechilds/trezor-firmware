@@ -956,7 +956,7 @@ int uncompress_coords(const ecdsa_curve *curve, uint8_t odd, const bignum256 *x,
   bn_multiply(y, &y_2_check, &curve->prime);  // y_2_check is y^2
   bn_mod(&y_2_check, &curve->prime);
   if (!bn_is_equal(&y_2_check, &y_2)) {
-    bn_zero(y);  // x is invalid (non-residue) -> y set to 0
+    bn_zero(y);  // x is invalid (x^3 + ax + b is a non-residue) -> y set to 0
     return 0;
   }
 
