@@ -15,6 +15,7 @@ pub mod hmac;
 pub mod memory;
 pub mod merkle;
 pub mod sha256;
+pub mod sha3;
 pub mod sha512;
 
 #[cfg_attr(feature = "test", derive(core::fmt::Debug))]
