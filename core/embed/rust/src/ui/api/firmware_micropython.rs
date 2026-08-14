@@ -2208,6 +2208,7 @@ pub static mp_module_trezorui_api: Module = obj_module! {
     ///     UnpairDevice: ClassVar[str]
     ///     UnpairAllDevices: ClassVar[str]
     ///     ToggleBluetooth: ClassVar[str]
+    ///     ShowAnzenMockup: ClassVar[str]
     ///     SetOrChangePin: ClassVar[str]
     ///     RemovePin: ClassVar[str]
     ///     SetAutoLockBattery: ClassVar[str]

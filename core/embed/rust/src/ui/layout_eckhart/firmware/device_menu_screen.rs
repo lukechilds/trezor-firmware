@@ -75,6 +75,7 @@ impl DeviceMenuScreen {
             DeviceMenuMsg::Reboot => DeviceMenuId::Power,
             DeviceMenuMsg::RebootToBootloader => DeviceMenuId::Power,
             DeviceMenuMsg::ToggleBluetooth => DeviceMenuId::Settings,
+            DeviceMenuMsg::ShowAnzenMockup => DeviceMenuId::Settings,
             DeviceMenuMsg::SetOrChangePin => DeviceMenuId::Security,
             DeviceMenuMsg::RemovePin => DeviceMenuId::Security,
             DeviceMenuMsg::SetAutoLockBattery => DeviceMenuId::AutoLock,
@@ -465,6 +466,11 @@ impl DeviceMenuScreen {
         items.add(
             MenuItem::return_msg(TR::words__bluetooth.into(), DeviceMenuMsg::ToggleBluetooth)
                 .with_subtext(ble_subtext),
+        );
+
+        items.add(
+            MenuItem::return_msg("Show Anzen mockup".into(), DeviceMenuMsg::ShowAnzenMockup)
+                .with_subtext(Some(("Interactive vault approval".into(), None))),
         );
 
         if self.has_submenu(DeviceMenuId::Security) {

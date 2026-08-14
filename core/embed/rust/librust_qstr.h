@@ -75,6 +75,7 @@ static void _librust_qstrs(void) {
   MP_QSTR_SetDeviceName;
   MP_QSTR_SetOrChangePin;
   MP_QSTR_SetOrChangeWipeCode;
+  MP_QSTR_ShowAnzenMockup;
   MP_QSTR_TR;
   MP_QSTR_TRANSITIONING;
   MP_QSTR_TX_PACKET_LEN;

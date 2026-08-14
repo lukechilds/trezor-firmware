@@ -25,6 +25,7 @@ pub enum DeviceMenuMsg {
 
     // Settings menu
     ToggleBluetooth,
+    ShowAnzenMockup,
 
     // Security menu
     SetOrChangePin,
@@ -60,6 +61,7 @@ impl DeviceMenuMsg {
             Self::Reboot => Qstr::MP_QSTR_Reboot,
             Self::RebootToBootloader => Qstr::MP_QSTR_RebootToBootloader,
             Self::ToggleBluetooth => Qstr::MP_QSTR_ToggleBluetooth,
+            Self::ShowAnzenMockup => Qstr::MP_QSTR_ShowAnzenMockup,
             Self::SetOrChangePin => Qstr::MP_QSTR_SetOrChangePin,
             Self::RemovePin => Qstr::MP_QSTR_RemovePin,
             Self::SetAutoLockBattery => Qstr::MP_QSTR_SetAutoLockBattery,
@@ -108,6 +110,7 @@ unsafe extern "C" fn device_menu_result_attr(_self_in: Obj, attr: ffi::qstr, des
             Qstr::MP_QSTR_UnpairDevice => Qstr::MP_QSTR_UnpairDevice,
             Qstr::MP_QSTR_UnpairAllDevices => Qstr::MP_QSTR_UnpairAllDevices,
             Qstr::MP_QSTR_ToggleBluetooth => Qstr::MP_QSTR_ToggleBluetooth,
+            Qstr::MP_QSTR_ShowAnzenMockup => Qstr::MP_QSTR_ShowAnzenMockup,
             Qstr::MP_QSTR_SetOrChangePin => Qstr::MP_QSTR_SetOrChangePin,
             Qstr::MP_QSTR_RemovePin => Qstr::MP_QSTR_RemovePin,
             Qstr::MP_QSTR_SetAutoLockBattery => Qstr::MP_QSTR_SetAutoLockBattery,

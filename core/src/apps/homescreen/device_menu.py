@@ -277,6 +277,43 @@ async def handle_ToggleBluetooth() -> None:
         ble.start_advertising(True, storage_device.get_label())
 
 
+async def handle_ShowAnzenMockup() -> None:
+    """Approve and benchmark the deterministic Anzen annual vault policy."""
+    from trezor.ui.layouts import confirm_properties, show_success
+
+    from apps.homescreen import anzen_benchmark
+
+    await confirm_properties(
+        br_name="anzen_mockup_policy",
+        title="Anzen annual policy",
+        props=(
+            ("Vault balance", "2.1 BTC", False),
+            ("Monthly allowance", "0.1 BTC", False),
+            ("Emergency access", "0.5 BTC", False),
+        ),
+        hold=True,
+        verb="Approve policy",
+    )
+
+    graph_time_us, signing_time_us = anzen_benchmark.run()
+    graph_time_ms = (graph_time_us + 500) // 1000
+    signing_time_ms = (signing_time_us + 500) // 1000
+    total_time_ms = graph_time_ms + signing_time_ms
+
+    await show_success(
+        br_name=None,
+        subheader="Vault policy signed",
+        content=(
+            "39 script-path signatures\n"
+            "Signing: %d ms\n"
+            "Full workload: %d ms\n"
+            "Results discarded"
+        )
+        % (signing_time_ms, total_time_ms),
+        button=TR.buttons__continue,
+    )
+
+
 async def handle_SetOrChangePin() -> None:
     from trezor.messages import ChangePin
 
@@ -500,6 +537,7 @@ _MENU_HANDLERS = {
     DeviceMenuResult.UnpairAllDevices: handle_UnpairAllDevices,
     DeviceMenuResult.UnpairDevice: handle_UnpairDevice,
     DeviceMenuResult.ToggleBluetooth: handle_ToggleBluetooth,
+    DeviceMenuResult.ShowAnzenMockup: handle_ShowAnzenMockup,
     DeviceMenuResult.SetOrChangePin: handle_SetOrChangePin,
     DeviceMenuResult.RemovePin: handle_RemovePin,
     DeviceMenuResult.SetAutoLockUSB: handle_SetAutoLockUSB,
