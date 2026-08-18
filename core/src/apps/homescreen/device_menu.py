@@ -295,21 +295,27 @@ async def handle_ShowAnzenMockup() -> None:
         verb="Approve policy",
     )
 
-    graph_time_us, signing_time_us = anzen_benchmark.run()
+    key_derivation_time_us, graph_time_us, signing_time_us = anzen_benchmark.run()
+    key_derivation_time_ms = (key_derivation_time_us + 500) // 1000
     graph_time_ms = (graph_time_us + 500) // 1000
     signing_time_ms = (signing_time_us + 500) // 1000
-    total_time_ms = graph_time_ms + signing_time_ms
+    total_time_ms = key_derivation_time_ms + graph_time_ms + signing_time_ms
 
     await show_success(
         br_name=None,
-        subheader="Vault policy signed",
+        subheader="Benchmark complete",
         content=(
-            "39 script-path signatures\n"
-            "Signing: %d ms\n"
-            "Full workload: %d ms\n"
-            "Results discarded"
+            "Key derivation: %d ms\n"
+            "Graph: %d ms\n"
+            "39 signatures: %d ms\n"
+            "Full workload: %d ms"
         )
-        % (signing_time_ms, total_time_ms),
+        % (
+            key_derivation_time_ms,
+            graph_time_ms,
+            signing_time_ms,
+            total_time_ms,
+        ),
         button=TR.buttons__continue,
     )
 

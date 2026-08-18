@@ -10,7 +10,7 @@ import utime
 from micropython import const
 from ubinascii import unhexlify
 
-from trezor.crypto import hashlib
+from trezor.crypto import bip32, hashlib
 from trezor.crypto.curve import bip340
 
 VAULT_BALANCE_SATS = const(210_000_000)
@@ -20,6 +20,15 @@ MONTHLY_STEPS = const(12)
 ROLLOVER_INPUT_COUNT = const(12)
 TRANSACTION_COUNT = const(28)
 SIGNATURE_COUNT = const(39)
+
+_HARDENED = const(1 << 31)
+BENCHMARK_PATH = (
+    86 | _HARDENED,
+    1 | _HARDENED,
+    100 | _HARDENED,
+    0,
+    2_147_483_647,
+)
 
 _MONTHLY_DELAY_SEQUENCE = const((1 << 22) | 5_063)
 _EMERGENCY_DELAY_SEQUENCE = const((1 << 22) | 1_182)
@@ -38,6 +47,12 @@ _HWW_PRIVATE_KEY = unhexlify(
 )
 _HWW_XONLY_PUBLIC_KEY = unhexlify(
     "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+)
+_BENCHMARK_SEED = unhexlify(
+    "2c650aa191caaf04f8a3db52526834aed61784a334e26ab7ec0fa8757042a38b"
+)
+FIXED_SIGNING_DIGEST = unhexlify(
+    "56e2dd75ad8fc8c9f8f58c2adf745fd3f46669ab381c5300a71eb6a7a2acb525"
 )
 _BIP341_NUMS_XONLY = unhexlify(
     "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0"
@@ -76,12 +91,12 @@ def _tapbranch_hash(left: bytes, right: bytes) -> bytes:
     return _tagged_hash(_TAPBRANCH_TAG_HASH, left, right)
 
 
-def _cooperative_script() -> bytes:
+def _cooperative_script(hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY) -> bytes:
     return (
         b"\x20"
         + _PHONE_XONLY_PUBLIC_KEY
         + b"\xac\x20"
-        + _HWW_XONLY_PUBLIC_KEY
+        + hww_xonly_public_key
         + b"\xba\x52\x9c"
     )
 
@@ -93,13 +108,15 @@ def _recovery_script(key: bytes, delay: int) -> bytes:
     )
 
 
-def _policy() -> tuple[bytes, bytes]:
-    cooperative_leaf = _tapleaf_hash(_cooperative_script())
+def _policy(
+    hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY,
+) -> tuple[bytes, bytes]:
+    cooperative_leaf = _tapleaf_hash(_cooperative_script(hww_xonly_public_key))
     phone_recovery = _tapleaf_hash(
         _recovery_script(_PHONE_XONLY_PUBLIC_KEY, _PHONE_RECOVERY_BLOCKS)
     )
     hww_recovery = _tapleaf_hash(
-        _recovery_script(_HWW_XONLY_PUBLIC_KEY, _HWW_RECOVERY_BLOCKS)
+        _recovery_script(hww_xonly_public_key, _HWW_RECOVERY_BLOCKS)
     )
     recoveries = _tapbranch_hash(phone_recovery, hww_recovery)
     merkle_root = _tapbranch_hash(cooperative_leaf, recoveries)
@@ -200,9 +217,11 @@ def _append_sighashes(
         result.append(_tagged_hash(_TAPSIGHASH_TAG_HASH, message))
 
 
-def generate_sighashes() -> list[bytes]:
+def generate_sighashes(
+    hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY,
+) -> list[bytes]:
     """Generate all 39 BIP341 script-path digests in vault signing order."""
-    vault_script_pubkey, cooperative_leaf_hash = _policy()
+    vault_script_pubkey, cooperative_leaf_hash = _policy(hww_xonly_public_key)
     result: list[bytes] = []
     transaction_count = 0
 
@@ -336,18 +355,55 @@ def generate_sighashes() -> list[bytes]:
     return result
 
 
-def run() -> tuple[int, int]:
-    """Return ``(graph_time_us, signing_time_us)`` for one annual policy."""
+def _derive_benchmark_key() -> tuple[int, bytes, bytes]:
+    """Time BIP32 private/public key derivation and return the resulting key pair."""
     gc.collect()
     started_us = utime.ticks_us()
-    sighashes = generate_sighashes()
-    graph_time_us = utime.ticks_diff(utime.ticks_us(), started_us)
+    node = bip32.from_seed(_BENCHMARK_SEED, "secp256k1")
+    node.derive_path(BENCHMARK_PATH)
+    private_key = node.private_key()
+    compressed_public_key = node.public_key()
+    key_derivation_time_us = utime.ticks_diff(utime.ticks_us(), started_us)
+    node.__del__()
 
+    assert len(private_key) == 32
+    assert len(compressed_public_key) == 33
+    assert compressed_public_key[0] in (2, 3)
+    return key_derivation_time_us, private_key, compressed_public_key[1:]
+
+
+def _benchmark_graph(hww_xonly_public_key: bytes) -> tuple[int, bytes]:
+    """Time construction of the complete transaction graph and its BIP341 digests."""
     gc.collect()
     started_us = utime.ticks_us()
-    for sighash in sighashes:
-        signature = bip340.sign(_HWW_PRIVATE_KEY, sighash)
+    sighashes = generate_sighashes(hww_xonly_public_key)
+    graph_time_us = utime.ticks_diff(utime.ticks_us(), started_us)
+    assert len(sighashes) == SIGNATURE_COUNT
+    last_sighash = sighashes[-1]
+    del sighashes
+    return graph_time_us, last_sighash
+
+
+def _benchmark_fixed_digest_signing(
+    private_key: bytes, signature_count: int
+) -> tuple[int, bytes]:
+    """Time repeated BIP340 signing independently from transaction hashing."""
+    gc.collect()
+    started_us = utime.ticks_us()
+    signature = b""
+    for _ in range(signature_count):
+        signature = bip340.sign(private_key, FIXED_SIGNING_DIGEST)
         assert len(signature) == 64
     signing_time_us = utime.ticks_diff(utime.ticks_us(), started_us)
+    return signing_time_us, signature[:32]
 
-    return graph_time_us, signing_time_us
+
+def run() -> tuple[int, int, int]:
+    """Return key, graph, and signing phase times for one annual policy."""
+    key_derivation_time_us, private_key, hww_xonly_public_key = _derive_benchmark_key()
+    graph_time_us, _last_sighash = _benchmark_graph(hww_xonly_public_key)
+    signing_time_us, _last_signature_r = _benchmark_fixed_digest_signing(
+        private_key, SIGNATURE_COUNT
+    )
+
+    return key_derivation_time_us, graph_time_us, signing_time_us

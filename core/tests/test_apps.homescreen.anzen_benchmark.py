@@ -8,6 +8,12 @@ from apps.homescreen import anzen_benchmark
 
 
 class TestAnzenBenchmark(unittest.TestCase):
+    def test_fixed_signing_digest(self):
+        self.assertEqual(
+            anzen_benchmark.FIXED_SIGNING_DIGEST,
+            hashlib.sha256(b"Anzen benchmark fixed BIP340 digest v1").digest(),
+        )
+
     # These vectors were independently generated with rust-bitcoin 0.32.9. Its
     # TapLeafHash, TapNodeHash and TapTweak implementations build the policy,
     # while anzen-cold-signer walks the transaction graph and rust-bitcoin's
@@ -62,6 +68,25 @@ class TestAnzenBenchmark(unittest.TestCase):
                     sighash,
                 )
             )
+
+    def test_fixed_digest_is_signed_by_the_real_bip340_primitive(self):
+        signature = bip340.sign(
+            anzen_benchmark._HWW_PRIVATE_KEY,
+            anzen_benchmark.FIXED_SIGNING_DIGEST,
+        )
+        self.assertTrue(
+            bip340.verify(
+                anzen_benchmark._HWW_XONLY_PUBLIC_KEY,
+                signature,
+                anzen_benchmark.FIXED_SIGNING_DIGEST,
+            )
+        )
+
+    def test_runtime_benchmark_key_is_derived_without_a_device_seed(self):
+        _elapsed_us, private_key, xonly_public_key = (
+            anzen_benchmark._derive_benchmark_key()
+        )
+        self.assertEqual(bip340.publickey(private_key), xonly_public_key)
 
 
 if __name__ == "__main__":
