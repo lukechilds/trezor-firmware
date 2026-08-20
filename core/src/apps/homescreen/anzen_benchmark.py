@@ -16,10 +16,11 @@ from trezor.crypto.curve import bip340
 VAULT_BALANCE_SATS = const(210_000_000)
 MONTHLY_ALLOWANCE_SATS = const(10_000_000)
 EMERGENCY_ACCESS_SATS = const(50_000_000)
+CONNECTOR_VALUE_SATS = const(10_000)
 MONTHLY_STEPS = const(12)
 ROLLOVER_INPUT_COUNT = const(12)
-TRANSACTION_COUNT = const(28)
-SIGNATURE_COUNT = const(39)
+TRANSACTION_COUNT = const(15)
+SIGNATURE_COUNT = const(26)
 
 _HARDENED = const(1 << 31)
 BENCHMARK_PATH = (
@@ -37,6 +38,8 @@ _HWW_RECOVERY_BLOCKS = const(65_535)
 _P2TR_SCRIPT_LEN = const(34)
 _COOPERATIVE_SCRIPT_LEN = const(70)
 _COOPERATIVE_CONTROL_BLOCK_LEN = const(65)
+_CONTROLLER_SCRIPT_LEN = const(34)
+_CONTROLLER_CONTROL_BLOCK_LEN = const(65)
 
 # These are intentionally public, trivial benchmark keys. They must never receive funds.
 _PHONE_XONLY_PUBLIC_KEY = unhexlify(
@@ -108,6 +111,10 @@ def _recovery_script(key: bytes, delay: int) -> bytes:
     )
 
 
+def _single_signature_script(key: bytes) -> bytes:
+    return b"\x20" + key + b"\xac"
+
+
 def _policy(
     hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY,
 ) -> tuple[bytes, bytes]:
@@ -124,9 +131,22 @@ def _policy(
     return b"\x51\x20" + output_key, cooperative_leaf
 
 
-def _cooperative_vsize(input_count: int, output_count: int) -> int:
+def _controller_policy(
+    hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY,
+) -> bytes:
+    phone_leaf = _tapleaf_hash(_single_signature_script(_PHONE_XONLY_PUBLIC_KEY))
+    hww_leaf = _tapleaf_hash(_single_signature_script(hww_xonly_public_key))
+    merkle_root = _tapbranch_hash(phone_leaf, hww_leaf)
+    output_key = bip340.tweak_public_key(_BIP341_NUMS_XONLY, merkle_root)
+    return b"\x51\x20" + output_key
+
+
+def _policy_vsize(
+    vault_input_count: int, controller_input_count: int, output_count: int
+) -> int:
+    input_count = vault_input_count + controller_input_count
     base_size = 4 + 1 + input_count * 41 + 1 + output_count * 43 + 4
-    witness_per_input = (
+    vault_witness = (
         1
         + 2 * (1 + 64)
         + 1
@@ -134,11 +154,23 @@ def _cooperative_vsize(input_count: int, output_count: int) -> int:
         + 1
         + _COOPERATIVE_CONTROL_BLOCK_LEN
     )
-    witness_size = 2 + input_count * witness_per_input
+    controller_witness = (
+        1
+        + (1 + 64)
+        + 1
+        + _CONTROLLER_SCRIPT_LEN
+        + 1
+        + _CONTROLLER_CONTROL_BLOCK_LEN
+    )
+    witness_size = (
+        2
+        + vault_input_count * vault_witness
+        + controller_input_count * controller_witness
+    )
     return (base_size * 4 + witness_size + 3) // 4
 
 
-# An input is (previous_txid, previous_vout, amount_sats, sequence).
+# An input is (previous_txid, previous_vout, amount_sats, sequence, is_controller).
 # An output is (amount_sats, script_pubkey), and a transaction is (inputs, outputs).
 
 
@@ -153,13 +185,13 @@ def _serialize_outputs(outputs: tuple[tuple[int, bytes], ...]) -> bytes:
 
 def _serialize_transaction(
     transaction: tuple[
-        tuple[tuple[bytes, int, int, int], ...], tuple[tuple[int, bytes], ...]
+        tuple[tuple[bytes, int, int, int, bool], ...], tuple[tuple[int, bytes], ...]
     ],
 ) -> bytes:
     inputs, outputs = transaction
     result = bytearray(b"\x02\x00\x00\x00")
     result.append(len(inputs))
-    for previous_txid, previous_vout, _amount, sequence in inputs:
+    for previous_txid, previous_vout, _amount, sequence, _controller in inputs:
         result.extend(previous_txid)
         result.extend(previous_vout.to_bytes(4, "little"))
         result.append(0)  # Empty scriptSig.
@@ -172,7 +204,7 @@ def _serialize_transaction(
 
 def _transaction_id(
     transaction: tuple[
-        tuple[tuple[bytes, int, int, int], ...], tuple[tuple[int, bytes], ...]
+        tuple[tuple[bytes, int, int, int, bool], ...], tuple[tuple[int, bytes], ...]
     ],
 ) -> bytes:
     first = _sha256(_serialize_transaction(transaction))
@@ -182,9 +214,10 @@ def _transaction_id(
 def _append_sighashes(
     result: list[bytes],
     transaction: tuple[
-        tuple[tuple[bytes, int, int, int], ...], tuple[tuple[int, bytes], ...]
+        tuple[tuple[bytes, int, int, int, bool], ...], tuple[tuple[int, bytes], ...]
     ],
     vault_script_pubkey: bytes,
+    controller_script_pubkey: bytes,
     cooperative_leaf_hash: bytes,
 ) -> None:
     inputs, outputs = transaction
@@ -192,12 +225,14 @@ def _append_sighashes(
     amounts = bytearray()
     script_pubkeys = bytearray()
     sequences = bytearray()
-    for previous_txid, previous_vout, amount, sequence in inputs:
+    for previous_txid, previous_vout, amount, sequence, is_controller in inputs:
         prevouts.extend(previous_txid)
         prevouts.extend(previous_vout.to_bytes(4, "little"))
         amounts.extend(amount.to_bytes(8, "little"))
         script_pubkeys.append(_P2TR_SCRIPT_LEN)
-        script_pubkeys.extend(vault_script_pubkey)
+        script_pubkeys.extend(
+            controller_script_pubkey if is_controller else vault_script_pubkey
+        )
         sequences.extend(sequence.to_bytes(4, "little"))
 
     common = (
@@ -213,6 +248,8 @@ def _append_sighashes(
     )
     extension = cooperative_leaf_hash + b"\x00\xff\xff\xff\xff"
     for input_index in range(len(inputs)):
+        if inputs[input_index][4]:
+            continue
         message = common + input_index.to_bytes(4, "little") + extension
         result.append(_tagged_hash(_TAPSIGHASH_TAG_HASH, message))
 
@@ -220,8 +257,9 @@ def _append_sighashes(
 def generate_sighashes(
     hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY,
 ) -> list[bytes]:
-    """Generate all 39 BIP341 script-path digests in vault signing order."""
+    """Generate the 26 HWW BIP341 digests for the connector-based annual graph."""
     vault_script_pubkey, cooperative_leaf_hash = _policy(hww_xonly_public_key)
+    controller_script_pubkey = _controller_policy(hww_xonly_public_key)
     result: list[bytes] = []
     transaction_count = 0
 
@@ -233,26 +271,41 @@ def generate_sighashes(
             0,
             rollover_input_value + (rollover_input_remainder if index == 0 else 0),
             0xFFFFFFFF,
+            False,
         )
         for index in range(ROLLOVER_INPUT_COUNT)
     )
-    continuing_fee = _cooperative_vsize(1, 2)
-    final_fee = _cooperative_vsize(1, 1)
+    continuing_fee = _policy_vsize(1, 1, 3)
+    final_fee = _policy_vsize(1, 1, 1)
     allowance_value = (
         MONTHLY_ALLOWANCE_SATS * MONTHLY_STEPS
         + continuing_fee * (MONTHLY_STEPS - 1)
         + final_fee
+        - CONNECTOR_VALUE_SATS
     )
-    rollover_fee = _cooperative_vsize(len(rollover_inputs), 2)
-    rollover_remainder = VAULT_BALANCE_SATS - allowance_value - rollover_fee
+    rollover_fee = _policy_vsize(len(rollover_inputs), 0, 4)
+    rollover_remainder = (
+        VAULT_BALANCE_SATS
+        - allowance_value
+        - rollover_fee
+        - CONNECTOR_VALUE_SATS * 2
+    )
     rollover = (
         rollover_inputs,
         (
             (allowance_value, vault_script_pubkey),
             (rollover_remainder, vault_script_pubkey),
+            (CONNECTOR_VALUE_SATS, controller_script_pubkey),
+            (CONNECTOR_VALUE_SATS, controller_script_pubkey),
         ),
     )
-    _append_sighashes(result, rollover, vault_script_pubkey, cooperative_leaf_hash)
+    _append_sighashes(
+        result,
+        rollover,
+        vault_script_pubkey,
+        controller_script_pubkey,
+        cooperative_leaf_hash,
+    )
     transaction_count += 1
     rollover_txid = _transaction_id(rollover)
 
@@ -261,43 +314,50 @@ def generate_sighashes(
         0,
         allowance_value,
         _MONTHLY_DELAY_SEQUENCE,
+        False,
+    )
+    connector_input = (
+        rollover_txid,
+        2,
+        CONNECTOR_VALUE_SATS,
+        0xFFFFFFFD,
+        True,
     )
     for index in range(MONTHLY_STEPS):
         has_next = index + 1 < MONTHLY_STEPS
         authorization_fee = continuing_fee if has_next else final_fee
-        next_chain_value = chain_input[2] - MONTHLY_ALLOWANCE_SATS - authorization_fee
+        next_chain_value = (
+            chain_input[2]
+            + CONNECTOR_VALUE_SATS
+            - (CONNECTOR_VALUE_SATS if has_next else 0)
+            - MONTHLY_ALLOWANCE_SATS
+            - authorization_fee
+        )
         index_byte = bytes([index])
         hot_script = b"\x51\x20" + _sha256(
             b"Anzen benchmark monthly hot output v1", index_byte
         )
         hot_output = (MONTHLY_ALLOWANCE_SATS, hot_script)
         authorization_outputs = (
-            (hot_output, (next_chain_value, vault_script_pubkey))
+            (
+                hot_output,
+                (next_chain_value, vault_script_pubkey),
+                (CONNECTOR_VALUE_SATS, controller_script_pubkey),
+            )
             if has_next
             else (hot_output,)
         )
         assert has_next or next_chain_value == 0
-        authorization = ((chain_input,), authorization_outputs)
+        authorization = ((chain_input, connector_input), authorization_outputs)
         _append_sighashes(
-            result, authorization, vault_script_pubkey, cooperative_leaf_hash
+            result,
+            authorization,
+            vault_script_pubkey,
+            controller_script_pubkey,
+            cooperative_leaf_hash,
         )
         transaction_count += 1
         authorization_txid = _transaction_id(authorization)
-
-        revocation_input = (
-            chain_input[0],
-            chain_input[1],
-            chain_input[2],
-            0xFFFFFFFF,
-        )
-        revocation = (
-            (revocation_input,),
-            ((chain_input[2] - final_fee, vault_script_pubkey),),
-        )
-        _append_sighashes(
-            result, revocation, vault_script_pubkey, cooperative_leaf_hash
-        )
-        transaction_count += 1
 
         if has_next:
             chain_input = (
@@ -305,19 +365,37 @@ def generate_sighashes(
                 1,
                 next_chain_value,
                 _MONTHLY_DELAY_SEQUENCE,
+                False,
+            )
+            connector_input = (
+                authorization_txid,
+                2,
+                CONNECTOR_VALUE_SATS,
+                0xFFFFFFFD,
+                True,
             )
 
-    staging_value = EMERGENCY_ACCESS_SATS + final_fee
+    staging_value = EMERGENCY_ACCESS_SATS + final_fee - CONNECTOR_VALUE_SATS
     trigger_fee = continuing_fee
     vault_change = rollover_remainder - staging_value - trigger_fee
     trigger = (
-        ((rollover_txid, 1, rollover_remainder, 0xFFFFFFFF),),
+        (
+            (rollover_txid, 1, rollover_remainder, 0xFFFFFFFF, False),
+            (rollover_txid, 3, CONNECTOR_VALUE_SATS, 0xFFFFFFFD, True),
+        ),
         (
             (staging_value, vault_script_pubkey),
             (vault_change, vault_script_pubkey),
+            (CONNECTOR_VALUE_SATS, controller_script_pubkey),
         ),
     )
-    _append_sighashes(result, trigger, vault_script_pubkey, cooperative_leaf_hash)
+    _append_sighashes(
+        result,
+        trigger,
+        vault_script_pubkey,
+        controller_script_pubkey,
+        cooperative_leaf_hash,
+    )
     transaction_count += 1
     trigger_txid = _transaction_id(trigger)
 
@@ -326,28 +404,25 @@ def generate_sighashes(
         0,
         staging_value,
         _EMERGENCY_DELAY_SEQUENCE,
+        False,
     )
     emergency_hot_script = b"\x51\x20" + _sha256(
         b"Anzen benchmark emergency hot output v1"
     )
     withdrawal = (
-        (emergency_input,),
+        (
+            emergency_input,
+            (trigger_txid, 2, CONNECTOR_VALUE_SATS, 0xFFFFFFFD, True),
+        ),
         ((EMERGENCY_ACCESS_SATS, emergency_hot_script),),
     )
-    _append_sighashes(result, withdrawal, vault_script_pubkey, cooperative_leaf_hash)
-    transaction_count += 1
-
-    cancellation_input = (
-        emergency_input[0],
-        emergency_input[1],
-        emergency_input[2],
-        0xFFFFFFFF,
+    _append_sighashes(
+        result,
+        withdrawal,
+        vault_script_pubkey,
+        controller_script_pubkey,
+        cooperative_leaf_hash,
     )
-    cancellation = (
-        (cancellation_input,),
-        ((staging_value - final_fee, vault_script_pubkey),),
-    )
-    _append_sighashes(result, cancellation, vault_script_pubkey, cooperative_leaf_hash)
     transaction_count += 1
 
     assert transaction_count == TRANSACTION_COUNT

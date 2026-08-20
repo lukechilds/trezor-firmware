@@ -32,25 +32,31 @@ class TestAnzenBenchmark(unittest.TestCase):
                 "51207746bd0987d0f99246ed8dd9a72602b25839cd69d5ed073594368f5730c366a8"
             ),
         )
+        self.assertEqual(
+            anzen_benchmark._controller_policy(),
+            unhexlify(
+                "5120ccbfe6eda160423f32be4f8e9d045840e00a13b1e22fcd3605e31cf3e8fdb109"
+            ),
+        )
 
         sighashes = anzen_benchmark.generate_sighashes()
-        self.assertEqual(len(sighashes), 39)
+        self.assertEqual(len(sighashes), 26)
         self.assertEqual(
             sighashes[0],
             unhexlify(
-                "b97d4d2065bdb3bd79e8084297e28f687788894fa3272bb464051f343805edb7"
+                "46dd6d700aa4bf754e6f1480f96d7023f3dcf7a1b2621a1a27095e926a867e01"
             ),
         )
         self.assertEqual(
             sighashes[-1],
             unhexlify(
-                "773e220f7338b8f2daa46cb6f32ec541f61566288ceabdd70167a962576ed926"
+                "079ca96c653a171ef2cf1d5adb82b031f1b1ef1d9b9a57fd345e70aea289943c"
             ),
         )
         self.assertEqual(
             hashlib.sha256(b"".join(sighashes)).digest(),
             unhexlify(
-                "94bda797a8c0fdc80f9108755eecc92eba0ce0700ff91ee5f57e3fbea190ced5"
+                "fe4c60fab14873c3b7d9eb25a1d51d11c368b28d047150b636851ac53085da75"
             ),
         )
 
