@@ -37,12 +37,13 @@ async def load_device(msg: LoadDevice) -> Success:
         raise ProcessError("Mnemonic is not valid")
 
     # _warn
-    await confirm_action(
-        "warn_loading_seed",
-        TR.debug__loading_seed,
-        TR.debug__loading_seed_not_recommended,
-        TR.words__know_what_your_doing,
-    )
+    if __debug__:
+        await confirm_action(
+            "warn_loading_seed",
+            TR.debug__loading_seed,
+            TR.debug__loading_seed_not_recommended,
+            TR.words__know_what_your_doing,
+        )
     # END _warn
 
     if not is_slip39:  # BIP-39

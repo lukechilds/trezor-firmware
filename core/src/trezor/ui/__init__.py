@@ -32,7 +32,7 @@ else:
     Generic = {T: object}
 
 
-if __debug__:
+if __debug__ or utils.USE_DEBUGLINK:
     from trezorui_api import disable_animation
 
     from apps.debug import notify_layout_change
@@ -120,7 +120,7 @@ class Layout(Generic[T]):
     [docs/core/misc/layout-lifecycle.md] for details.
     """
 
-    if __debug__:
+    if __debug__ or utils.USE_DEBUGLINK:
 
         @staticmethod
         def _trace(layout: LayoutObj) -> str:
@@ -154,7 +154,7 @@ class Layout(Generic[T]):
         # Homescreen layouts can override this.
         self.should_resume = False
 
-        if __debug__:
+        if __debug__ or utils.USE_DEBUGLINK:
             self._is_attached: bool = False
 
     def is_ready(self) -> bool:
@@ -249,7 +249,7 @@ class Layout(Generic[T]):
             backlight_fade(BacklightLevels.NONE)
 
             set_current_layout(None)
-            if __debug__:
+            if __debug__ or utils.USE_DEBUGLINK:
                 notify_layout_change(None)
 
     async def get_result(self) -> T:
@@ -312,12 +312,12 @@ class Layout(Generic[T]):
             first_paint = True
             # Process a button request coming out of the Rust layout.
             has_br = self.put_button_request(self.layout.button_request())
-            if __debug__:
+            if __debug__ or utils.USE_DEBUGLINK:
                 self._is_attached = not has_br
                 if self._is_attached:
                     notify_layout_change(self)
 
-        elif __debug__ and state is not None:
+        elif (__debug__ or utils.USE_DEBUGLINK) and state is not None:
             self._is_attached = False
 
         if first_paint:
@@ -437,7 +437,7 @@ class Layout(Generic[T]):
                 touch.close()
 
     def _button_request_acked(self) -> None:
-        if __debug__:
+        if __debug__ or utils.USE_DEBUGLINK:
             self._is_attached = True
             notify_layout_change(self)
 
@@ -525,7 +525,7 @@ class ProgressLayout:
     is currently displayed, who needs to redraw and when.
     """
 
-    if __debug__:
+    if __debug__ or utils.USE_DEBUGLINK:
 
         def is_layout_attached(self) -> bool:
             return True

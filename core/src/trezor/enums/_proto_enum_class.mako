@@ -2,7 +2,7 @@
 # fmt: off
 # isort:skip_file
 
-% if values_altcoin or any(v.name.startswith('Thp') for v in values_always):
+% if values_altcoin or any(v.name.startswith(('DebugLink', 'Thp')) for v in values_always):
 from trezor import utils
 
 % endif
@@ -15,7 +15,7 @@ values_rest = [v for v in values_always if not v.name.startswith('DebugLink') an
 ${value.name} = ${value.number}
 % endfor
 % if values_debug:
-if __debug__:
+if __debug__ or utils.USE_DEBUGLINK:
 % for value in values_debug:
     ${value.name} = ${value.number}
 % endfor
@@ -36,7 +36,7 @@ values_rest = [v for v in values_altcoin if not v.name.startswith('DebugLink')]
     ${value.name} = ${value.number}
 % endfor
 % if values_debug:
-    if __debug__:
+    if __debug__ or utils.USE_DEBUGLINK:
 % for value in values_debug:
         ${value.name} = ${value.number}
 % endfor

@@ -12,7 +12,7 @@ if not utils.BITCOIN_ONLY and usb.ENABLE_IFACE_WEBAUTHN:
 
     apps.webauthn.boot()
 
-if __debug__:
+if __debug__ or utils.USE_DEBUGLINK:
     import apps.debug
 
     apps.debug.boot()

@@ -53,7 +53,7 @@ def get_enabled_pairing_methods(
     with respect to the wire interface the host communicates on.
     """
     methods = _DEFAULT_ENABLED_PAIRING_METHODS.copy()
-    if __debug__:
+    if __debug__ or utils.USE_DEBUGLINK:
         methods.append(ThpPairingMethod.SkipPairing)
         methods.append(  # Used only in tests, TODO: https://github.com/trezor/trezor-firmware/issues/6037
             ThpPairingMethod.NFC

@@ -72,6 +72,10 @@ fn main() -> Result<()> {
             lib.add_define("USE_N4W1", Some("1"));
         }
 
+        if cfg!(feature = "debuglink") {
+            lib.add_define("USE_DEBUGLINK", Some("1"));
+        }
+
         lib.add_define(
             "MICROPY_ENABLE_SOURCE_LINE",
             Some(if cfg!(feature = "enable_source_lines") {
@@ -537,7 +541,7 @@ impl<'a> MpyBuilder<'a> {
             inputs.remove(protob_dir, "messages-thp.proto");
         }
 
-        if cfg!(feature = "pyopt") {
+        if cfg!(all(feature = "pyopt", not(feature = "debuglink"))) {
             inputs.remove(protob_dir, "messages-debug.proto");
         }
 
@@ -1095,7 +1099,7 @@ impl<'a> MpyBuilder<'a> {
             files.remove(src, "storage/sd_salt.py");
         }
 
-        if cfg!(feature = "pyopt") {
+        if cfg!(all(feature = "pyopt", not(feature = "debuglink"))) {
             files.remove(src, "storage/debug.py");
         }
 
@@ -1125,7 +1129,7 @@ impl<'a> MpyBuilder<'a> {
         files.remove(enums, "Zcash*.py");
         files.remove(enums, "Tron*.py");
 
-        if cfg!(feature = "pyopt") {
+        if cfg!(all(feature = "pyopt", not(feature = "debuglink"))) {
             files.remove(enums, "Debug*.py");
         }
 
@@ -1143,7 +1147,7 @@ impl<'a> MpyBuilder<'a> {
             files.remove(src, "apps/common/sdcard.py");
         }
 
-        if cfg!(not(feature = "pyopt")) {
+        if cfg!(any(not(feature = "pyopt"), feature = "debuglink")) {
             files.add(src, "apps/debug/*.py")?;
 
             if current_model != "T3W1" {

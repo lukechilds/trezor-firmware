@@ -26,6 +26,7 @@ from trezorutils import (  # noqa: F401
     USE_BLE,
     USE_BUTTON,
     USE_DBG_CONSOLE,
+    USE_DEBUGLINK,
     USE_HAPTIC,
     USE_IPC,
     USE_MCU_ATTESTATION,

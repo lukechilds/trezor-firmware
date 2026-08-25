@@ -103,7 +103,7 @@ BenchmarkRun = 9102
 BenchmarkResult = 9103
 TelemetryGet = 1100
 Telemetry = 1101
-if __debug__:
+if __debug__ or utils.USE_DEBUGLINK:
     DebugLinkDecision = 100
     DebugLinkGetState = 101
     DebugLinkState = 102

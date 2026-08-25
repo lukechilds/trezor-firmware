@@ -1,11 +1,12 @@
 from trezor.wire import message_handler
+from trezorutils import USE_DEBUGLINK
 
-if not __debug__:
+if not (__debug__ or USE_DEBUGLINK):
     from trezor.utils import halt
 
     halt("debug mode inactive")
 
-if __debug__:
+if __debug__ or USE_DEBUGLINK:
     import utime
     from micropython import const
     from typing import TYPE_CHECKING

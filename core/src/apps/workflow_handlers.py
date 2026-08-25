@@ -26,7 +26,7 @@ def _find_message_handler_module(msg_type: int) -> str:
     from trezor.enums import MessageType
 
     # debug
-    if __debug__ and msg_type == MessageType.LoadDevice:
+    if (__debug__ or utils.USE_DEBUGLINK) and msg_type == MessageType.LoadDevice:
         return "apps.debug.load_device"
 
     # benchmark
