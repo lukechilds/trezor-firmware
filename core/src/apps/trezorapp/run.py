@@ -132,7 +132,7 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
             raise DataError(f"Task stopped: {request.instance_id}")
         try:
             msg: IpcMessage = await loop.wait(
-                io.IPC2_EVENT | io.POLL_READ, timeout_ms=1000
+                io.IPC2_EVENT | io.POLL_READ, timeout_ms=30_000
             )
         except loop.Timeout:
             die(DataError("Timeout waiting for message"))
