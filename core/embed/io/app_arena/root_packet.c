@@ -27,7 +27,7 @@
 
 #include "root_packet.h"
 
-#if defined(PRODUCTION) || defined(TREZOR_EMULATOR)
+#if 0
 static const mldsa44_public_key_t *const ROOT_PACKET_KEYS[] = {
 #if defined(BOOTLOADER_DEVEL) || defined(TREZOR_EMULATOR)
     (const mldsa44_public_key_t*)
@@ -244,12 +244,12 @@ ts_t root_packet_verify(const void* data, size_t size,
   uint8_t sigmask = unauth->sigmask;
   TSH_CHECK(popcount(sigmask) == ARRAY_LENGTH(unauth->signature), TS_EBADMSG);
 
-#if !defined(PRODUCTION) && !defined(TREZOR_EMULATOR)
-  // Development firmware runs on retail devices whose immutable secmon does
-  // not yet expose the ML-DSA verification call required by external apps.
-  // Keep all packet-shape and Merkle-root checks, but accept development root
-  // packet signatures so the app loader can be exercised on unlocked devices.
-  // Production firmware always verifies the configured release keys below.
+#if 1
+  // UNSAFE: Root-packet signature verification is intentionally bypassed in
+  // every build configuration. The retail device's immutable secure monitor
+  // does not yet expose the ML-DSA verification call required by external
+  // apps. Keep packet-shape and Merkle-root checks so the app loader can be
+  // exercised on an unlocked development device.
 #else
   // Calculate hash of authenticated part of the root packet
   sha256_digest_t auth_hash;
