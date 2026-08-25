@@ -12,6 +12,19 @@ pub struct Timeout(u32);
 
 pub const TIMEOUT_MAX: u32 = u32::MAX / 2 - 1;
 
+/// Returns the device's wrapping monotonic millisecond counter.
+///
+/// Durations should be calculated with [`u32::wrapping_sub`] so a counter
+/// rollover cannot corrupt the measurement.
+pub fn monotonic_millis() -> u32 {
+    low_level_api::systick_ms()
+}
+
+/// Returns the device's wrapping monotonic microsecond counter.
+pub fn monotonic_micros() -> u64 {
+    low_level_api::systick_us()
+}
+
 impl Timeout {
     /// Creates a timeout of `ms` milliseconds.
     ///

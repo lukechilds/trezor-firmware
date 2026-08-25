@@ -44,6 +44,9 @@ _SERVICE_CRYPTO_SIGN_TYPED_HASH = const(3)
 _SERVICE_CRYPTO_GET_ADDRESS_MAC = const(4)
 _SERVICE_CRYPTO_CHECK_ADDRESS_MAC = const(5)
 _SERVICE_CRYPTO_VERIFY_NONCE_CACHE = const(6)
+_SERVICE_CRYPTO_SIGN_DIGESTS = const(7)
+
+_MAX_BIP340_DIGEST_BATCH = const(28)
 
 
 def fn_id(service: int, message_id: int) -> int:
@@ -72,6 +75,9 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
     if len(curves) != 1:
         raise DataError("Expected exactly one allowed curve")
     curve = curves[0]
+    # BIP340 uses secp256k1 keys; "bip340" selects Schnorr operations, while
+    # the BIP32 implementation still expects the underlying curve name.
+    keychain_curve = "secp256k1" if curve == "bip340" else curve
 
     patterns: list[str] = list(image.allowed_paths())
 
@@ -161,7 +167,7 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                                 f"Getting xpub for path: {address_n}, xpub_magic: {xpub_magic}",
                             )
                         keychain = await get_keychain(
-                            curve, [paths.AlwaysMatchingSchema]
+                            keychain_curve, [paths.AlwaysMatchingSchema]
                         )
                         result = await _get_xpub(address_n, keychain, xpub_magic)
                     except Exception:
@@ -180,7 +186,7 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                                 "Deriving keychain",
                             )
                         keychain = await get_keychain(
-                            curve, [paths.AlwaysMatchingSchema]
+                            keychain_curve, [paths.AlwaysMatchingSchema]
                         )
                         if __debug__:
                             log.debug(
@@ -200,10 +206,7 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                             )
                     except Exception as e:
                         if __debug__:
-                            log.error(
-                                __name__,
-                                f"Failed to get public key bytes due to exception: {e}",
-                            )
+                            log.exception(__name__, e)
                         result = False
 
                 elif message_id == _SERVICE_CRYPTO_SIGN_DIGEST:
@@ -214,13 +217,41 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                     try:
                         if __debug__:
                             log.debug(__name__, f"Signing digest for path: {address_n}")
-                        keychain = await get_keychain(curve, schemas, [[b"SLIP-0024"]])
+                        keychain = await get_keychain(
+                            keychain_curve, schemas, [[b"SLIP-0024"]]
+                        )
                         result = await _sign_digest(
                             address_n, digest, compressed, keychain, curve
                         )
+                        result = [1, result]
 
                     except Exception:
                         log.error(__name__, "Failed to sign digest")
+                        result = False
+
+                elif message_id == _SERVICE_CRYPTO_SIGN_DIGESTS:
+                    assert len(obj) == 2
+                    address_n: list[int] = obj[0]
+                    digests: bytes = obj[1]
+                    try:
+                        if curve != "bip340":
+                            raise DataError("Digest batches require BIP340")
+                        if (
+                            len(digests) == 0
+                            or len(digests) % 32 != 0
+                            or len(digests) // 32 > _MAX_BIP340_DIGEST_BATCH
+                        ):
+                            raise DataError("Invalid BIP340 digest batch")
+                        keychain = await get_keychain(
+                            keychain_curve, schemas, [[b"SLIP-0024"]]
+                        )
+                        result = [
+                            1,
+                            await _sign_bip340_digests(address_n, digests, keychain),
+                        ]
+                    except Exception as e:
+                        if __debug__:
+                            log.exception(__name__, e)
                         result = False
 
                 elif message_id == _SERVICE_CRYPTO_SIGN_TYPED_HASH:
@@ -242,7 +273,7 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                             and encoded_token is None
                             and chain_id is None
                         ):
-                            keychain = await get_keychain(curve, schemas)
+                            keychain = await get_keychain(keychain_curve, schemas)
                         result = await _sign_typed_hash(
                             address_n,
                             data_hash,
@@ -266,7 +297,9 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                             log.debug(
                                 __name__, f"Getting address MAC for path: {address_n}"
                             )
-                        keychain = await get_keychain(curve, schemas, [[b"SLIP-0024"]])
+                        keychain = await get_keychain(
+                            keychain_curve, schemas, [[b"SLIP-0024"]]
+                        )
                         await paths.validate_path(keychain, address_n)
                         from apps.common.address_mac import get_address_mac
 
@@ -286,7 +319,9 @@ async def run(request: TrezorAppMessage) -> TrezorAppResponse:
                             log.debug(
                                 __name__, f"Checking address MAC for path: {address_n}"
                             )
-                        keychain = await get_keychain(curve, schemas, [[b"SLIP-0024"]])
+                        keychain = await get_keychain(
+                            keychain_curve, schemas, [[b"SLIP-0024"]]
+                        )
                         await paths.validate_path(keychain, address_n)
                         from apps.common.address_mac import check_address_mac
 
@@ -483,9 +518,10 @@ async def _get_public_key(
 
         return curve25519.publickey(node.private_key())
     elif curve_name == "bip340":
-        from trezor.crypto.curve import bip340
-
-        return bip340.publickey(node.private_key())
+        compressed_public_key = node.public_key()
+        if len(compressed_public_key) != 33:
+            raise DataError("Invalid secp256k1 public key")
+        return compressed_public_key[1:]
     else:
         raise DataError(f"Unsupported curve: {curve_name}")
 
@@ -519,6 +555,24 @@ async def _sign_digest(
         return bip340.sign(node.private_key(), digest)
     else:
         raise DataError(f"Unsupported curve: {curve_name} for signing digest")
+
+
+async def _sign_bip340_digests(
+    address_n: list[int], digests: bytes, keychain: Keychain
+) -> bytes:
+    from trezor.crypto.curve import bip340
+
+    await paths.validate_path(keychain, address_n)
+    private_key = keychain.derive(address_n).private_key()
+    signatures = bytearray((len(digests) // 32) * 64)
+    output_offset = 0
+    for digest_offset in range(0, len(digests), 32):
+        signature = bip340.sign(
+            private_key, digests[digest_offset : digest_offset + 32]
+        )
+        signatures[output_offset : output_offset + 64] = signature
+        output_offset += 64
+    return bytes(signatures)
 
 
 async def _sign_typed_hash(

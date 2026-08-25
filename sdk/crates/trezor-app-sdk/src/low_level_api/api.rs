@@ -241,6 +241,10 @@ pub fn systick_ms() -> u32 {
     unsafe { unwrap!(get_or_die().systick_ms)() }
 }
 
+pub fn systick_us() -> u64 {
+    unsafe { unwrap!(get_or_die().systick_us)() }
+}
+
 pub fn syslog_start_record(module_name: &[u8], log_level: u32) {
     let module_name = CSlice::from(module_name);
     unsafe {

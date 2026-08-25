@@ -846,6 +846,10 @@ pub enum TrezorCryptoEnum<'a> {
         digest: [u8; 32],
         compressed: bool,
     },
+    SignDigests {
+        address_n: Slice<'a, u32>,
+        digests: Slice<'a, u8>,
+    },
     SignTypedHash {
         address_n: Slice<'a, u32>,
         hash: [u8; 32],
@@ -878,6 +882,7 @@ impl<'a> TrezorCryptoEnum<'a> {
             Self::GetAddressMac { .. } => 4,
             Self::CheckAddressMac { .. } => 5,
             Self::VerifyNonceCache { .. } => 6,
+            Self::SignDigests { .. } => 7,
         }
     }
 }
@@ -890,14 +895,13 @@ impl<'a> TrezorCryptoEnum<'a> {
 pub enum TrezorCryptoResultRef<'a> {
     Xpub([u8; 111]),
     PublicKey(Slice<'a, u8>), // 32, 33 or 65 bytes depending on the curve
-    Signature([u8; 65]),
+    Signature(Slice<'a, u8>),
     AddressMac([u8; 32]),
     Boolean(bool),
 }
 
-// Manual uDebug: `[u8; 111]`/`[u8; 65]` are too long for ufmt's built-in
-// fixed-size-array uDebug impls (only implemented up to length 32), so the
-// large byte arrays are debug-printed as slices instead.
+// Manual uDebug: `[u8; 111]` is too long for ufmt's built-in fixed-size-array
+// uDebug impls, so large byte values are debug-printed as slices instead.
 impl<'a> ufmt::uDebug for TrezorCryptoResultRef<'a> {
     fn fmt<W: ?Sized>(&self, f: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
     where
@@ -906,7 +910,7 @@ impl<'a> ufmt::uDebug for TrezorCryptoResultRef<'a> {
         match self {
             Self::Xpub(xpub) => f.debug_tuple("Xpub")?.field(&&xpub[..])?.finish(),
             Self::PublicKey(key) => f.debug_tuple("PublicKey")?.field(key)?.finish(),
-            Self::Signature(sig) => f.debug_tuple("Signature")?.field(&&sig[..])?.finish(),
+            Self::Signature(sig) => f.debug_tuple("Signature")?.field(sig)?.finish(),
             Self::AddressMac(mac) => f.debug_tuple("AddressMac")?.field(mac)?.finish(),
             Self::Boolean(b) => f.debug_tuple("Boolean")?.field(b)?.finish(),
         }
@@ -922,7 +926,7 @@ impl<'a> ufmt::uDebug for TrezorCryptoResultRef<'a> {
 pub enum TrezorCryptoResult {
     Xpub([u8; 111]),
     PublicKey(crate::alloc_types::Vec<u8>), // 32, 33 or 65 bytes depending on the curve
-    Signature([u8; 65]),
+    Signature(crate::alloc_types::Vec<u8>),
     AddressMac([u8; 32]),
     Boolean(bool),
 }
@@ -936,7 +940,7 @@ impl ufmt::uDebug for TrezorCryptoResult {
         match self {
             Self::Xpub(xpub) => f.debug_tuple("Xpub")?.field(&&xpub[..])?.finish(),
             Self::PublicKey(key) => f.debug_tuple("PublicKey")?.field(&key.as_slice())?.finish(),
-            Self::Signature(sig) => f.debug_tuple("Signature")?.field(&&sig[..])?.finish(),
+            Self::Signature(sig) => f.debug_tuple("Signature")?.field(&sig.as_slice())?.finish(),
             Self::AddressMac(mac) => f.debug_tuple("AddressMac")?.field(mac)?.finish(),
             Self::Boolean(b) => f.debug_tuple("Boolean")?.field(b)?.finish(),
         }
@@ -1021,6 +1025,14 @@ mod tests {
                 "SignTypedHash",
             ),
             (
+                SignDigests {
+                    address_n: empty_u32.into(),
+                    digests: empty_u8.into(),
+                }
+                .id(),
+                "SignDigests",
+            ),
+            (
                 GetAddressMac {
                     address_n: empty_u32.into(),
                     address: "".into(),
@@ -1049,7 +1061,7 @@ mod tests {
         for (id, name) in variants {
             assert!(seen.insert(id), "duplicate id {} for variant {}", id, name);
         }
-        assert_eq!(variants.len(), 7, "new variant added but test not updated");
+        assert_eq!(variants.len(), 8, "new variant added but test not updated");
     }
 
     /// Ensures every variant of TrezorProgressEnum has a unique id()

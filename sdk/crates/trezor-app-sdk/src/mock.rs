@@ -196,6 +196,18 @@ unsafe extern "C" fn dummy_ed25519_sign_open(
     0
 }
 
+/// **Stub** — copies the internal key so unit tests receive a stable value.
+unsafe extern "C" fn dummy_bip340_tweak_public_key(
+    internal_public_key: *const u8,
+    _root_hash: *const u8,
+    output_public_key: *mut u8,
+) -> core::ffi::c_int {
+    unsafe {
+        core::ptr::copy_nonoverlapping(internal_public_key, output_public_key, 32);
+    }
+    0
+}
+
 pub static DUMMY_TREZOR_CRYPTO_V1: trezor_crypto_v1_t = trezor_crypto_v1_t {
     ed25519_cosi_combine_publickeys: Some(dummy_ed25519_cosi_combine_publickeys),
     ed25519_sign_open: Some(dummy_ed25519_sign_open),
@@ -218,6 +230,7 @@ pub static DUMMY_TREZOR_CRYPTO_V1: trezor_crypto_v1_t = trezor_crypto_v1_t {
     hmac_sha512_Final: Some(dummy_hmac_sha512_final),
     ecdsa_recover_pub_from_sig: Some(dummy_ecdsa_recover_pub_from_sig),
     ecdsa_verify_digest: Some(dummy_ecdsa_verify_digest),
+    bip340_tweak_public_key: Some(dummy_bip340_tweak_public_key),
     secp256k1: &SECP256K1 as *const ecdsa_curve,
     nist256p1: &NIST256P1 as *const ecdsa_curve,
 };
@@ -275,6 +288,11 @@ unsafe extern "C" fn dummy_systick_ms() -> u32 {
     0
 }
 
+/// **Stub** — always returns `0`. Does not read any real hardware tick counter.
+unsafe extern "C" fn dummy_systick_us() -> u64 {
+    0
+}
+
 /// **Stub** — does nothing. No events are polled; `signalled` is left unmodified.
 unsafe extern "C" fn dummy_sysevents_poll(
     _awaited: *const sysevents_t,
@@ -328,6 +346,7 @@ pub static DUMMY_TREZOR_API_V1: trezor_api_v1_t = trezor_api_v1_t {
     syslog_start_record: Some(dummy_syslog_start_record),
     syslog_write_chunk: Some(dummy_syslog_write_chunk),
     systick_ms: Some(dummy_systick_ms),
+    systick_us: Some(dummy_systick_us),
     sysevents_poll: Some(dummy_sysevents_poll),
     ipc_register: Some(dummy_ipc_register),
     ipc_unregister: Some(dummy_ipc_unregister),

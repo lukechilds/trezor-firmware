@@ -80,6 +80,11 @@ extern "C" fn new_deserialize_crypto_message(
                 )
                     .try_into()?
             }
+            Archived::<TrezorCryptoEnum>::SignDigests { address_n, digests } => (
+                obj_from_dp_slice(address_n),
+                Obj::try_from(digests.as_ref())?,
+            )
+                .try_into()?,
             Archived::<TrezorCryptoEnum>::SignTypedHash {
                 address_n,
                 hash,
@@ -198,14 +203,18 @@ extern "C" fn new_send_crypto_result(n_args: usize, args: *const Obj, kwargs: *m
                     );
                     TrezorCryptoResultRef::PublicKey(unwrap!(data.try_into()))
                 }
+                1 => {
+                    assert!(!data.is_empty(), "Expected at least one signature byte");
+                    TrezorCryptoResultRef::Signature(unwrap!(data.try_into()))
+                }
                 _ => {
                     return Err(Error::TypeError);
                 }
             }
         };
 
-        let mut arena = [MaybeUninit::<u8>::uninit(); 200];
-        let mut out = Align([MaybeUninit::<u8>::uninit(); 200]);
+        let mut arena = [MaybeUninit::<u8>::uninit(); 2048];
+        let mut out = Align([MaybeUninit::<u8>::uninit(); 2048]);
 
         let bytes = unwrap!(to_bytes_in_with_alloc::<_, _, Failure>(
             &msg,

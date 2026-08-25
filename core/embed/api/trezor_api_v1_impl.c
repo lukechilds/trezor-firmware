@@ -61,6 +61,7 @@ const trezor_crypto_v1_t trezor_crypto_v1 = {
     .hmac_sha512_Final = hmac_sha512_Final,
     .ecdsa_recover_pub_from_sig = ecdsa_recover_pub_from_sig,
     .ecdsa_verify_digest = ecdsa_verify_digest,
+    .bip340_tweak_public_key = zkp_bip340_tweak_public_key,
     .secp256k1 = &secp256k1,
     .nist256p1 = &nist256p1,
 };
@@ -70,6 +71,7 @@ const trezor_api_v1_t trezor_api_v1 = {
     .system_exit_error_ex = system_exit_error_ex,
     .system_exit_fatal_ex = system_exit_fatal_ex,
     .systick_ms = systick_ms,
+    .systick_us = systick_us,
     .sysevents_poll = sysevents_poll,
     .syslog_start_record = syslog_start_record_,
     .syslog_write_chunk = syslog_write_chunk,

@@ -22,6 +22,7 @@ use crate::{Error, Result, unwrap};
 // ============================================================================
 
 type CryptoResult = Result<TrezorCryptoResult>;
+const MAX_BIP340_DIGEST_BATCH: usize = 28;
 
 fn ipc_crypto_call<'a>(value: &TrezorCryptoEnum<'a>) -> CryptoResult {
     let bytes = unwrap!(to_bytes::<Failure>(value));
@@ -42,7 +43,7 @@ fn ipc_crypto_call<'a>(value: &TrezorCryptoEnum<'a>) -> CryptoResult {
             TrezorCryptoResult::PublicKey(Vec::from(xpub.as_ref()))
         }
         Archived::<TrezorCryptoResultRef>::Signature(signature) => {
-            TrezorCryptoResult::Signature(*signature)
+            TrezorCryptoResult::Signature(Vec::from(signature.as_ref()))
         }
     };
 
@@ -179,7 +180,10 @@ pub fn sign_typed_hash(
     let res = ipc_crypto_call(&value);
 
     if let Ok(TrezorCryptoResult::Signature(signature)) = res {
-        Ok(signature)
+        signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| Error::DataError("Invalid typed-hash signature length"))
     } else {
         // TODO: proper error type
         Err(Error::ApiError(crate::low_level_api::ApiError::Failed))?
@@ -197,10 +201,41 @@ pub fn sign_digest(address_n: &[u32], digest: &[u8; 32], compressed: bool) -> Re
     let res = ipc_crypto_call(&value);
 
     if let Ok(TrezorCryptoResult::Signature(signature)) = res {
-        Ok(signature)
+        signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| Error::DataError("Invalid digest signature length"))
     } else {
         // TODO: proper error type
         Err(Error::ApiError(crate::low_level_api::ApiError::Failed))?
+    }
+}
+
+/// Signs multiple BIP340 digests after deriving `address_n` once.
+///
+/// The returned byte vector contains one 64-byte Schnorr signature per input
+/// digest, in the same order. Batching avoids repeating BIP32 derivation and
+/// IPC setup for annual-policy signing ceremonies.
+pub fn sign_bip340_digests(address_n: &[u32], digests: &[[u8; 32]]) -> Result<Vec<u8>> {
+    if digests.is_empty() {
+        return Err(Error::DataError("No BIP340 digests supplied"));
+    }
+    if digests.len() > MAX_BIP340_DIGEST_BATCH {
+        return Err(Error::DataError("Too many BIP340 digests supplied"));
+    }
+
+    let digest_bytes =
+        unsafe { core::slice::from_raw_parts(digests.as_ptr().cast::<u8>(), digests.len() * 32) };
+    let value = TrezorCryptoEnum::SignDigests {
+        address_n: address_n.into(),
+        digests: digest_bytes.into(),
+    };
+
+    match ipc_crypto_call(&value)? {
+        TrezorCryptoResult::Signature(signatures) if signatures.len() == digests.len() * 64 => {
+            Ok(signatures)
+        }
+        _ => Err(Error::DataError("Invalid BIP340 signature batch length")),
     }
 }
 
@@ -272,6 +307,31 @@ pub mod secp256k1 {
         digest: &[u8; 32],
     ) -> Option<crate::alloc_types::Vec<u8>> {
         ecdsa_recover(get_crypto_or_die().secp256k1, signature, digest)
+    }
+}
+
+/// BIP340 and Taproot public-key operations that do not access the device seed.
+pub mod bip340 {
+    use super::*;
+
+    /// Applies the BIP341 TapTweak for `merkle_root` to an x-only public key.
+    pub fn tweak_public_key(
+        internal_public_key: &[u8; 32],
+        merkle_root: &[u8; 32],
+    ) -> Result<[u8; 32]> {
+        let mut output_public_key = [0_u8; 32];
+        let result = unsafe {
+            unwrap!(get_crypto_or_die().bip340_tweak_public_key)(
+                internal_public_key.as_ptr(),
+                merkle_root.as_ptr(),
+                output_public_key.as_mut_ptr(),
+            )
+        };
+        if result == 0 {
+            Ok(output_public_key)
+        } else {
+            Err(Error::DataError("Failed to tweak BIP340 public key"))
+        }
     }
 }
 
@@ -363,4 +423,21 @@ pub mod hmac {
     pub use crate::low_level_api::{HmacSha256, HmacSha512};
     #[cfg(feature = "test")]
     pub use crate::mock::{HmacSha256, HmacSha512};
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bip340_batches_reject_sizes_the_firmware_cannot_process() {
+        assert!(matches!(
+            sign_bip340_digests(&[], &[]),
+            Err(Error::DataError("No BIP340 digests supplied"))
+        ));
+        assert!(matches!(
+            sign_bip340_digests(&[], &[[0_u8; 32]; MAX_BIP340_DIGEST_BATCH + 1]),
+            Err(Error::DataError("Too many BIP340 digests supplied"))
+        ));
+    }
 }

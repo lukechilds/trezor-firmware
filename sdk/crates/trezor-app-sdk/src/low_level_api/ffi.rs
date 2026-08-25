@@ -209,6 +209,13 @@ pub struct trezor_crypto_v1_t {
     >,
     pub secp256k1: *const ecdsa_curve,
     pub nist256p1: *const ecdsa_curve,
+    pub bip340_tweak_public_key: ::core::option::Option<
+        unsafe extern "C" fn(
+            internal_public_key: *const u8,
+            root_hash: *const u8,
+            output_public_key: *mut u8,
+        ) -> cty::c_int,
+    >,
 }
 impl Default for trezor_crypto_v1_t {
     fn default() -> Self {
@@ -274,6 +281,7 @@ pub struct trezor_api_v1_t {
         unsafe extern "C" fn(heap_ptr: *mut *mut cty::c_void, heap_size: *mut usize) -> ts_t,
     >,
     pub trezor_crypto_v1: *const trezor_crypto_v1_t,
+    pub systick_us: ::core::option::Option<unsafe extern "C" fn() -> u64>,
 }
 impl Default for trezor_api_v1_t {
     fn default() -> Self {

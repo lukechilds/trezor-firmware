@@ -44,6 +44,7 @@
 #include "secp256k1.h"
 #include "sha2.h"
 #include "sha3.h"
+#include "zkp_bip340.h"
 
 #ifndef USE_DBG_CONSOLE
 // temporary hack to allow compilation when DBG console is disabled
@@ -87,6 +88,9 @@ typedef struct {
                              const uint8_t* sig, const uint8_t* digest);
   const ecdsa_curve* secp256k1;
   const ecdsa_curve* nist256p1;
+  int (*bip340_tweak_public_key)(const uint8_t* internal_public_key,
+                                 const uint8_t* root_hash,
+                                 uint8_t* output_public_key);
 } trezor_crypto_v1_t;
 
 typedef struct {
@@ -123,5 +127,7 @@ typedef struct {
   ts_t (*app_get_heap)(void** heap_ptr, size_t* heap_size);
 
   const trezor_crypto_v1_t* trezor_crypto_v1;
+
+  uint64_t (*systick_us)(void);
 
 } trezor_api_v1_t;
