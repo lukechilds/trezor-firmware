@@ -113,7 +113,9 @@ fn build_impl(args: ResolvedBuildArgs, is_dependency: bool) -> Result<()> {
     let elf = helpers::elf_path(&args)?;
 
     if !args.emulator {
-        let use_dev_keys = args.bootloader_devel || !args.production;
+        // Unsafe custom firmware uses the production-authenticated UNSAFE
+        // vendor header, whose firmware keys are the local development keys.
+        let use_dev_keys = args.bootloader_devel || !args.production || args.unsafe_fw;
 
         let model_config = args.model.config()?;
 

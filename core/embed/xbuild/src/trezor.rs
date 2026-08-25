@@ -84,12 +84,13 @@ fn is_bitcoin_only() -> bool {
 }
 
 fn get_firmware_vendor() -> Result<&'static str> {
-    Ok(if has_feature("bootloader_devel") {
-        if has_feature("unsafe_fw") {
-            "unsafe_signed_dev"
-        } else {
-            "dev_DO_NOT_SIGN_signed_dev"
-        }
+    Ok(if has_feature("unsafe_fw") {
+        // The retail bootloader can authenticate this production-signed
+        // vendor header, while the header delegates firmware verification to
+        // the local development keys used for custom firmware.
+        "unsafe_signed_prod"
+    } else if has_feature("bootloader_devel") {
+        "dev_DO_NOT_SIGN_signed_dev"
     } else if !has_feature("production") {
         "unsafe_signed_prod"
     } else if current_model_id()? == "T2T1" {
