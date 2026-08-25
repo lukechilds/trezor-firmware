@@ -38,7 +38,13 @@ ts_t app_loader_verify_payload(const app_header_t* header, const void* code,
   TSH_CHECK_ARG(header != NULL);
   TSH_CHECK_ARG(code != NULL);
 
+#if defined(__x86_64__)
   TSH_CHECK(header->target_arch == APP_TARGET_ARCH_X86_64, TS_EBADMSG);
+#elif defined(__aarch64__)
+  TSH_CHECK(header->target_arch == APP_TARGET_ARCH_AARCH64, TS_EBADMSG);
+#else
+#error "Unsupported external app emulator architecture"
+#endif
   TSH_CHECK(code_size == header->code_size, TS_EBADMSG);
 
 cleanup:

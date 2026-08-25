@@ -46,22 +46,10 @@ pub fn publish_artifact(binary: &Path, app: &str, model: Model, emulator: bool) 
 /// All published apps are passed to the tool at once: the proofs of a ring are only valid for
 /// the RootPacket built from the whole ring, so rebuilding a single app has to rebuild the set.
 ///
-/// TODO: temporary, only works for the in-tree sdk/apps workspace of a
-/// trezor-firmware checkout -- it hardcodes that workspace's fixed depth
-/// below the repo root to locate trezorapp_tool.py. A standalone app repo
-/// (modular-xtask consumed as a path dependency from elsewhere) has no
-/// trezor-firmware checkout at a known position relative to it, so proof/
-/// RootPacket generation is skipped there (with a warning) instead of
-/// attempted incorrectly. This whole shell-out to trezorapp_tool.py is
-/// itself expected to be replaced by trezorctl functionality eventually.
+/// The tool is located relative to this `modular-xtask` crate, which works for
+/// both Trezor's in-tree app workspace and standalone apps consuming the build
+/// tool through a path dependency.
 pub fn generate_app_proofs(model: Model, emulator: bool) -> Result<()> {
-    if !helpers::is_workspace()? {
-        println!(
-            "xtask: warning: not running in the sdk/apps workspace, skipping app proof/RootPacket generation"
-        );
-        return Ok(());
-    }
-
     let dir = helpers::artifacts_dir(model, emulator)?;
     let apps = published_apps(&dir)?;
     ensure!(
@@ -70,12 +58,11 @@ pub fn generate_app_proofs(model: Model, emulator: bool) -> Result<()> {
         dir.display()
     );
 
-    // Hardcoded: the sdk/apps workspace root is always two levels below the
-    // trezor-firmware repo root (<repo>/sdk/apps).
-    let repo_root = helpers::root_dir()?
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
-        .context("Failed to resolve repo root from the sdk/apps workspace root")?
+        .and_then(Path::parent)
+        .context("Failed to resolve repo root from modular-xtask")?
         .to_path_buf();
 
     let mut cmd = Command::new("uv");

@@ -23,6 +23,7 @@ use crate::{armv8m, metadata};
 enum AppBinaryType {
     ARMV8M = 0,
     X86_64 = 1,
+    AARCH64 = 2,
 }
 
 /// The app header is a fixed-size structure at the beginning of the application image
@@ -125,6 +126,7 @@ pub fn convert_elf_to_bin(elf_path: &Path, package: &Package) -> Result<PathBuf>
             )
         }
         object::Architecture::X86_64 => (AppBinaryType::X86_64, raw_elf, 0),
+        object::Architecture::Aarch64 => (AppBinaryType::AARCH64, raw_elf, 0),
         arch => anyhow::bail!("Unsupported architecture: {:?}", arch),
     };
 

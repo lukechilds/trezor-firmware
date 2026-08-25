@@ -10,6 +10,8 @@ exclude = ["supply-chain/"]
 [lib]
 crate-type = ["rlib"]
 
+[workspace]
+
 [dependencies]
 rkyv = { version = "0.8", default-features = false }
 critical-section = "1.2.0"
