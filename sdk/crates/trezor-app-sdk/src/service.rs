@@ -46,6 +46,8 @@ pub enum Error<'a> {
     Timeout,
     /// The message could not be sent to the remote task.
     FailedToSend,
+    /// The kernel signalled an IPC event without a queued message.
+    FailedToReceive,
     /// A response was received from an unexpected service ID.
     UnexpectedService(IpcMessage<'a>),
     /// A response with an unexpected format or content was received.
@@ -58,6 +60,7 @@ impl<'a> Error<'a> {
         match self {
             Self::Timeout => "timeout while waiting for response",
             Self::FailedToSend => "failed to send message",
+            Self::FailedToReceive => "failed to receive signalled message",
             Self::UnexpectedService(_) => "received message from unexpected service",
             Self::UnexpectedResponse(_) => "received unexpected response message",
         }
@@ -85,13 +88,18 @@ impl<'a, T: Into<u16> + Copy> IpcRemote<'a, T> {
     /// Blocks until a message is available or `timeout` expires.
     /// Returns [`Error::Timeout`] if no message arrives in time.
     pub fn receive(&self, timeout: Timeout) -> Result<IpcMessage<'a>, Error<'a>> {
+        // Core can reply before this task reaches `poll`, particularly on real
+        // hardware. Consume an already queued reply first so correctness does
+        // not depend on a second edge notification from the scheduler.
+        if let Some(message) = self.inbox.try_receive() {
+            return Ok(message);
+        }
+
         let events_ready = SysEvents::new_with_read(&[self.inbox.remote()]).poll(timeout);
         if !events_ready.read_ready(self.inbox.remote()) {
             return Err(Error::Timeout);
         }
-        // this should not fail, because the kernel signalled us that a message is ready
-        let message = self.inbox.try_receive().expect("Failed to receive message");
-        Ok(message)
+        self.inbox.try_receive().ok_or(Error::FailedToReceive)
     }
 
     /// Sends a message to the remote service and waits for a response.

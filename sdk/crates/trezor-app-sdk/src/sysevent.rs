@@ -92,8 +92,8 @@ impl SysEvents {
         let mut signalled = ffi::sysevents_t::default();
         low_level_api::sysevents_poll(&awaited, &mut signalled, timeout.as_deadline());
         Self {
-            read: HandleSet(awaited.read_ready),
-            write: HandleSet(awaited.write_ready),
+            read: HandleSet(signalled.read_ready),
+            write: HandleSet(signalled.write_ready),
         }
     }
 }
