@@ -33,8 +33,8 @@ BENCHMARK_PATH = (
 
 _MONTHLY_DELAY_SEQUENCE = const((1 << 22) | 5_063)
 _EMERGENCY_DELAY_SEQUENCE = const((1 << 22) | 1_182)
-_PHONE_RECOVERY_BLOCKS = const(61_200)
-_HWW_RECOVERY_BLOCKS = const(65_535)
+# BIP68 time-based: the type flag plus 65,535 units of 512 seconds, about 388 days.
+_HWW_RECOVERY_SEQUENCE = const((1 << 22) | 65_535)
 _P2TR_SCRIPT_LEN = const(34)
 _COOPERATIVE_SCRIPT_LEN = const(70)
 _COOPERATIVE_CONTROL_BLOCK_LEN = const(65)
@@ -104,10 +104,14 @@ def _cooperative_script(hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY) -> 
     )
 
 
-def _recovery_script(key: bytes, delay: int) -> bytes:
-    # Both configured delays need a third zero byte to remain positive Script numbers.
+def _recovery_script(key: bytes, sequence: int) -> bytes:
+    # The time-based sequence is a positive three-byte Script number.
     return (
-        b"\x03" + bytes([delay & 0xFF, delay >> 8, 0]) + b"\xb2\x69\x20" + key + b"\xac"
+        b"\x03"
+        + bytes([sequence & 0xFF, (sequence >> 8) & 0xFF, sequence >> 16])
+        + b"\xb2\x69\x20"
+        + key
+        + b"\xac"
     )
 
 
@@ -119,14 +123,10 @@ def _policy(
     hww_xonly_public_key: bytes = _HWW_XONLY_PUBLIC_KEY,
 ) -> tuple[bytes, bytes]:
     cooperative_leaf = _tapleaf_hash(_cooperative_script(hww_xonly_public_key))
-    phone_recovery = _tapleaf_hash(
-        _recovery_script(_PHONE_XONLY_PUBLIC_KEY, _PHONE_RECOVERY_BLOCKS)
-    )
     hww_recovery = _tapleaf_hash(
-        _recovery_script(hww_xonly_public_key, _HWW_RECOVERY_BLOCKS)
+        _recovery_script(hww_xonly_public_key, _HWW_RECOVERY_SEQUENCE)
     )
-    recoveries = _tapbranch_hash(phone_recovery, hww_recovery)
-    merkle_root = _tapbranch_hash(cooperative_leaf, recoveries)
+    merkle_root = _tapbranch_hash(cooperative_leaf, hww_recovery)
     output_key = bip340.tweak_public_key(_BIP341_NUMS_XONLY, merkle_root)
     return b"\x51\x20" + output_key, cooperative_leaf
 

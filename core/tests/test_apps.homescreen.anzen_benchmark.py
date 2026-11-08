@@ -44,19 +44,19 @@ class TestAnzenBenchmark(unittest.TestCase):
         self.assertEqual(
             sighashes[0],
             unhexlify(
-                "f8822d0163062def93d76aff8ff68e310e9b5ff74cf7b01da0ab24dc79b19cf7"
+                "38093984bcf5c3279d50533cb1b46d75d097e786b26e6ac650b371e410d271d0"
             ),
         )
         self.assertEqual(
             sighashes[-1],
             unhexlify(
-                "b747e0da869f4d3b063d43486fabb53da892b4ab7029f4045b12fa22f0d74c31"
+                "b14b42404fc3c5723094ec34216b0733b090198e6ac44c00b69aef2b45fb15d3"
             ),
         )
         self.assertEqual(
             hashlib.sha256(b"".join(sighashes)).digest(),
             unhexlify(
-                "46214a1b16f883aa7f668262078e52ed415bfae0c6a554ad125d42752c713afa"
+                "d110e79de9a09738ec1d1d89bd158a10d635598df866e820a4251cd4c44b918a"
             ),
         )
 
