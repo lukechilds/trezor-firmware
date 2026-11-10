@@ -32,6 +32,21 @@
 // higher-level root packet.
 #define ROOT_PACKET_MAX_DRIFT (90 * 86400)  // 90 days
 
+// Development firmware for a retail device (neither a production build, nor a
+// build for a development bootloader, nor the emulator) cannot check a root
+// packet's signatures: the model has no production root packet keys yet, and
+// the secure monitor a retail device ships with does not expose the ML-DSA
+// verification the check needs. Such a build accepts any well-formed root
+// packet, so that apps can be loaded on an unlocked device at all.
+//
+// UNSAFE, and for development only: on such firmware nothing vouches for an
+// app. Every other check (the packet's shape, the app's Merkle proof against
+// the packet's root) still runs, and production firmware always verifies.
+#if defined(PRODUCTION) || defined(BOOTLOADER_DEVEL) || defined(TREZOR_EMULATOR)
+#define ROOT_PACKET_SIGNATURES_VERIFIED 1
+#endif
+
+#ifdef ROOT_PACKET_SIGNATURES_VERIFIED
 static const mldsa44_public_key_t * const ROOT_PACKET_KEYS[] = {
 #if defined(BOOTLOADER_DEVEL) || defined(TREZOR_EMULATOR)
     (const mldsa44_public_key_t*)
@@ -204,6 +219,7 @@ static const mldsa44_public_key_t * const ROOT_PACKET_KEYS[] = {
     MODEL_ROOT_PACKET_KEYS
 #endif
 };
+#endif  // ROOT_PACKET_SIGNATURES_VERIFIED
 
 // Returns the number of set bits in the given value.
 static int popcount(uint8_t value) {
@@ -230,7 +246,6 @@ static bool is_contiguous_mask(uint8_t mask) {
 ts_t root_packet_verify(const void* data, size_t size,
                         root_packet_auth_t** out) {
   TSH_DECLARE;
-  ts_t status;
 
   TSH_CHECK_ARG(data != NULL);
   TSH_CHECK_ARG(out != NULL);
@@ -268,6 +283,19 @@ ts_t root_packet_verify(const void* data, size_t size,
 
   TSH_CHECK(size == auth_part_size + sizeof(root_packet_unauth_t), TS_EBADMSG);
 
+  root_packet_unauth_t* unauth =
+      (root_packet_unauth_t*)((uint8_t*)auth + auth_part_size);
+  TSH_CHECK(IS_ALIGNED((uintptr_t)unauth, _Alignof(root_packet_unauth_t)),
+            TS_EBADMSG);
+
+  uint8_t sigmask = unauth->sigmask;
+
+  TSH_CHECK(popcount(sigmask) == ARRAY_LENGTH(unauth->signature), TS_EBADMSG);
+
+#ifdef ROOT_PACKET_SIGNATURES_VERIFIED
+  ts_t status;
+  uint8_t sigmask_inv = 0;  // FIH
+
   // Calculate hash of authenticated part of the root packet
   sha256_digest_t auth_hash;
   SHA256_CTX ctx;
@@ -276,16 +304,6 @@ ts_t root_packet_verify(const void* data, size_t size,
   sha256_Final(&ctx, auth_hash.bytes);
 
   // Verify signatures
-  root_packet_unauth_t* unauth =
-      (root_packet_unauth_t*)((uint8_t*)auth + auth_part_size);
-  TSH_CHECK(IS_ALIGNED((uintptr_t)unauth, _Alignof(root_packet_unauth_t)),
-            TS_EBADMSG);
-
-  uint8_t sigmask = unauth->sigmask;
-  uint8_t sigmask_inv = 0;  // FIH
-
-  TSH_CHECK(popcount(sigmask) == ARRAY_LENGTH(unauth->signature), TS_EBADMSG);
-
   for (size_t sig_idx = 0; sig_idx < ARRAY_LENGTH(unauth->signature);
        sig_idx++) {
     // Get the index of the public key in the signature mask
@@ -307,6 +325,7 @@ ts_t root_packet_verify(const void* data, size_t size,
   // Check that all signatures were verified
   TSH_CHECK(sigmask == 0, TS_EBADMSG);
   TSH_CHECK(sigmask_inv == unauth->sigmask, TS_EBADMSG);  // FIH
+#endif  // ROOT_PACKET_SIGNATURES_VERIFIED
 
   *out = auth;
 
