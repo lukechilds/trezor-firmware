@@ -132,28 +132,33 @@ pub fn convert_elf_to_bin(
     let raw_elf = fs::read(elf_path)
         .with_context(|| format!("Failed to read the elf file {:?}", elf_path))?;
 
-    let elf = object::File::parse(&*raw_elf)
-        .with_context(|| format!("Failed to parse the elf file {:?}", elf_path))?;
+    // The macOS emulator loads a Mach-O dynamic library, taken as it is like
+    // the ELF shared object of the Linux emulator.
+    let (target_arch, code, data_size) = if is_macos_aarch64_image(&raw_elf) {
+        (TargetArch::MacosAarch64, raw_elf, 0)
+    } else {
+        let elf = object::File::parse(&*raw_elf)
+            .with_context(|| format!("Failed to parse the elf file {:?}", elf_path))?;
 
-    ensure!(
-        elf.format() == object::BinaryFormat::Elf,
-        "Unsupported binary format: {:?}",
-        elf.format()
-    );
+        ensure!(
+            elf.format() == object::BinaryFormat::Elf,
+            "Unsupported binary format: {:?}",
+            elf.format()
+        );
 
-    let (target_arch, code, data_size) = match elf.architecture() {
-        object::Architecture::Arm => {
-            let arm_binary = armv8m::Armv8mBinary::from_object_file(&elf, package)?;
-            arm_binary.print_info();
-            (
-                TargetArch::Armv8m,
-                arm_binary.to_bytes()?,
-                arm_binary.ram_size(),
-            )
+        match elf.architecture() {
+            object::Architecture::Arm => {
+                let arm_binary = armv8m::Armv8mBinary::from_object_file(&elf, package)?;
+                arm_binary.print_info();
+                (
+                    TargetArch::Armv8m,
+                    arm_binary.to_bytes()?,
+                    arm_binary.ram_size(),
+                )
+            }
+            object::Architecture::X86_64 => (TargetArch::LinuxX86_64, raw_elf, 0),
+            arch => anyhow::bail!("Unsupported architecture: {:?}", arch),
         }
-        object::Architecture::X86_64 => (TargetArch::LinuxX86_64, raw_elf, 0),
-        object::Architecture::Aarch64 => (TargetArch::MacosAarch64, raw_elf, 0),
-        arch => anyhow::bail!("Unsupported architecture: {:?}", arch),
     };
 
     // The inbox is allocated out of the app's own heap at launch, so a
@@ -207,6 +212,13 @@ pub fn convert_elf_to_bin(
         .context("Failed to write the app binary data to the output file")?;
 
     Ok(bin_path)
+}
+
+/// Whether `image` is a 64-bit little-endian Mach-O file for arm64.
+fn is_macos_aarch64_image(image: &[u8]) -> bool {
+    const MH_MAGIC_64: [u8; 4] = 0xfeed_facf_u32.to_le_bytes();
+    const CPU_TYPE_ARM64: [u8; 4] = 0x0100_000c_u32.to_le_bytes();
+    image.len() >= 8 && image[..4] == MH_MAGIC_64 && image[4..8] == CPU_TYPE_ARM64
 }
 
 /// Returns the path of the serialized app (`.tapp`) that

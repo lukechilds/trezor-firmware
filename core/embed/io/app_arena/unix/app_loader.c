@@ -41,7 +41,12 @@ ts_t app_loader_verify_payload(const app_header_t* header, const void* code,
   TSH_CHECK_ARG(header != NULL);
   TSH_CHECK_ARG(code != NULL);
 
+  // The image is a dynamic library for the emulator's own host.
+#if defined(__APPLE__) && defined(__aarch64__)
+  TSH_CHECK(header->target_arch == APP_TARGET_ARCH_MACOS_AARCH64, TS_EBADMSG);
+#else
   TSH_CHECK(header->target_arch == APP_TARGET_ARCH_X86_64, TS_EBADMSG);
+#endif
   TSH_CHECK(code_size == header->code_size, TS_EBADMSG);
 
 cleanup:
