@@ -66,6 +66,13 @@ pub fn get_public_key(m: wire::GetPublicKey) -> Result<wire::PublicKey> {
     Ok(wire::PublicKey { public_key })
 }
 
+pub fn get_private_key(m: wire::GetPrivateKey) -> Result<wire::Data> {
+    let private_key = sdk::get_private_key(key_curve(m.curve)?, &m.address_n)?;
+    Ok(wire::Data {
+        data: private_key.to_vec(),
+    })
+}
+
 pub fn ecdsa_sign_digest(m: wire::EcdsaSignDigest) -> Result<wire::Signature> {
     let signature = sdk::ecdsa_sign_digest(
         curve(m.curve)?,

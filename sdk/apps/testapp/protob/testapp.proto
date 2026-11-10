@@ -103,6 +103,15 @@ message PublicKey {
 }
 
 /**
+ * Request: crypto::get_private_key
+ * @next Data
+ */
+message GetPrivateKey {
+    required Curve curve = 1;
+    repeated uint32 address_n = 2;
+}
+
+/**
  * Request: crypto::ecdsa_sign_digest; `digest` must be 32 bytes
  * @next Signature
  */

@@ -24,8 +24,8 @@ use proto::messages::MessageType;
 use proto::testapp::{
     Base58CheckDecode, Base58CheckEncode, Base58Decode, Base58Encode, CheckAddressMac,
     CosiCombinePublicKeys, CosiVerify, EcdsaRecoverPubkey, EcdsaSignDigest, EcdsaVerify,
-    EcdsaVerifyDigest, Ed25519Sign, Ed25519Verify, GetAddressMac, GetPublicKey, GetXpub, Hash,
-    Hmac, VerifyNonceCache,
+    EcdsaVerifyDigest, Ed25519Sign, Ed25519Verify, GetAddressMac, GetPrivateKey, GetPublicKey,
+    GetXpub, Hash, Hmac, VerifyNonceCache,
 };
 
 /// Wire codec for [`wire_handler!`] — encodes/decodes messages via [`prost`].
@@ -70,6 +70,13 @@ wire_handler!(
     GetPublicKey,
     MessageType::PublicKey,
     crypto::get_public_key
+);
+wire_handler!(
+    handle_get_private_key,
+    ProstCodec,
+    GetPrivateKey,
+    MessageType::Data,
+    crypto::get_private_key
 );
 wire_handler!(
     handle_ecdsa_sign_digest,
@@ -190,6 +197,7 @@ pub fn handle_wire_message(id: i32, data: &[u8]) -> Result<()> {
         Ok(MessageType::Hmac) => handle_hmac(data),
         Ok(MessageType::GetXpub) => handle_get_xpub(data),
         Ok(MessageType::GetPublicKey) => handle_get_public_key(data),
+        Ok(MessageType::GetPrivateKey) => handle_get_private_key(data),
         Ok(MessageType::EcdsaSignDigest) => handle_ecdsa_sign_digest(data),
         Ok(MessageType::Ed25519Sign) => handle_ed25519_sign(data),
         Ok(MessageType::GetAddressMac) => handle_get_address_mac(data),

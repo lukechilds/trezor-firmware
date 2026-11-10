@@ -29,6 +29,8 @@ _ED25519_SIGN = 3
 _GET_ADDRESS_MAC = 4
 _CHECK_ADDRESS_MAC = 5
 _VERIFY_NONCE_CACHE = 6
+# Anzen addition, not part of upstream's API: see `_get_private_key`.
+_GET_PRIVATE_KEY = 7
 
 # `CanonicalSig` values in the SDK.
 _CANONICAL_ANY = 0
@@ -187,6 +189,28 @@ async def _verify_nonce_cache(session: Session, obj: Any) -> bool:
     return result
 
 
+async def _get_private_key(session: Session, obj: Any) -> bytes:
+    """Hand the app the private key at one of its own paths.
+
+    Anzen addition. Every other operation keeps keys in Core and signs here,
+    which limits an app to the schemes Core implements. An app that needs
+    another one (BIP340 and MuSig2 for Taproot, in Anzen's case) cannot build
+    it without the key.
+
+    The path has to match the app's manifest exactly: unlike signing, there is
+    no "unusual path" warning the person could confirm past, so an app never
+    gets a key outside the subtree it declared.
+    """
+    from apps.common.keychain import ForbiddenKeyPath
+
+    curve, address_n = obj
+    _check_not_slip25(address_n)
+    keychain = await session.keychain(_curve(curve))
+    if not keychain.is_in_keychain(address_n):
+        raise ForbiddenKeyPath
+    return keychain.derive(address_n).private_key()
+
+
 _HANDLERS: dict[int, CryptoHandler] = {
     _GET_XPUB: _get_xpub,
     _GET_PUBLIC_KEY: _get_public_key,
@@ -195,4 +219,5 @@ _HANDLERS: dict[int, CryptoHandler] = {
     _GET_ADDRESS_MAC: _get_address_mac,
     _CHECK_ADDRESS_MAC: _check_address_mac,
     _VERIFY_NONCE_CACHE: _verify_nonce_cache,
+    _GET_PRIVATE_KEY: _get_private_key,
 }

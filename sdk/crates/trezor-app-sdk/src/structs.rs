@@ -877,6 +877,12 @@ pub enum TrezorCryptoEnum<'a> {
     VerifyNonceCache {
         nonce: Slice<'a, u8>,
     },
+    /// The private key itself. See `CryptoV1::get_private_key`.
+    GetPrivateKey {
+        /// A [`Curve`](crate::traits::crypto::Curve), as its `u8` value.
+        curve: u8,
+        address_n: Slice<'a, u32>,
+    },
 }
 
 impl<'a> TrezorCryptoEnum<'a> {
@@ -889,6 +895,7 @@ impl<'a> TrezorCryptoEnum<'a> {
             Self::GetAddressMac { .. } => 4,
             Self::CheckAddressMac { .. } => 5,
             Self::VerifyNonceCache { .. } => 6,
+            Self::GetPrivateKey { .. } => 7,
         }
     }
 }
@@ -1009,6 +1016,14 @@ mod tests {
                 }
                 .id(),
                 "VerifyNonceCache",
+            ),
+            (
+                GetPrivateKey {
+                    curve: 0,
+                    address_n: empty_u32.into(),
+                }
+                .id(),
+                "GetPrivateKey",
             ),
         ];
         let mut seen = std::collections::HashSet::new();

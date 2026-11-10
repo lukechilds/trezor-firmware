@@ -232,3 +232,15 @@ pub fn base58check_decode(data: &str) -> Result<Vec<u8>> {
         .c()
         .map(|b| b.as_ref().to_vec())
 }
+
+/// The 32-byte private key at `address_n` on `curve`.
+///
+/// Anzen addition, not part of upstream's API: for signature schemes Core
+/// does not implement. Core only answers for a path declared in the app's
+/// manifest. Wipe the key as soon as it has been used.
+pub fn get_private_key(curve: Curve, address_n: &[u32]) -> Result<[u8; 32]> {
+    get_crypto_or_die()
+        .get_private_key(curve, address_n.into())
+        .into_app_result()
+        .c()
+}

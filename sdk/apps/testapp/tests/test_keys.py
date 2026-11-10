@@ -96,6 +96,40 @@ def test_get_public_key_forbidden_path(session: Session, instance_id: int, path:
         testapp_ext.get_public_key(session, instance_id, parse_path(path), True)
 
 
+@parametrize_using_common_fixtures("keys.json")
+def test_get_private_key(session: Session, instance_id: int, parameters, result):
+    """The private key of a manifest path is the one behind its public key."""
+    from ecdsa import SECP256k1, SigningKey
+
+    address_n = parse_path(parameters["path"])
+    private_key = testapp_ext.get_private_key(session, instance_id, address_n)
+    assert len(private_key) == 32
+    public_key = SigningKey.from_string(private_key, curve=SECP256k1).verifying_key
+    assert public_key.to_string("compressed").hex() == result["public_key_compressed"]
+
+
+@pytest.mark.parametrize("path", FORBIDDEN_PATHS)
+def test_get_private_key_forbidden_path(
+    session: Session, instance_id: int, path: str
+):
+    """A private key never leaves for a path outside the app's manifest."""
+    with raises(SdkError.DataError, OPERATION_FAILED):
+        testapp_ext.get_private_key(session, instance_id, parse_path(path))
+
+
+def test_get_private_key_slip25_forbidden(session: Session, instance_id: int):
+    with raises(SdkError.DataError, OPERATION_FAILED):
+        testapp_ext.get_private_key(session, instance_id, SLIP25_PATH)
+
+
+def test_get_private_key_undeclared_curve(session: Session, instance_id: int):
+    """Like every key operation, limited to the curves the manifest declares."""
+    with raises(SdkError.DataError, OPERATION_FAILED):
+        testapp_ext.get_private_key(
+            session, instance_id, ACCOUNT_N, m.Curve.CurveCurve25519
+        )
+
+
 @pytest.mark.parametrize(
     "curve, curve_name",
     [

@@ -185,6 +185,21 @@ def get_public_key(
     return res.public_key
 
 
+def get_private_key(
+    session: "Session",
+    instance_id: int,
+    address_n: "Address",
+    curve: m.Curve = m.Curve.CurveSecp256k1,
+) -> bytes:
+    res = call_ext(
+        session,
+        instance_id,
+        msg_data=m.GetPrivateKey(curve=curve, address_n=list(address_n)),
+        expect=[m.Data],
+    )
+    return res.data
+
+
 def ecdsa_sign_digest(
     session: "Session",
     instance_id: int,

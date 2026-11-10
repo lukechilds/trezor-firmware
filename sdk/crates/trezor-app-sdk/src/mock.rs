@@ -263,6 +263,14 @@ impl CryptoV1 for DummyCrypto {
     ) -> FastResult<stabby::boxed::BoxedSlice<u8>, CryptoError> {
         unimplemented!("not exercised by the current test suite")
     }
+
+    extern "C" fn get_private_key<'a>(
+        &self,
+        _curve: Curve,
+        _address_n: Slice<'a, u32>,
+    ) -> FastResult<[u8; 32], WireError> {
+        unimplemented!("not exercised by the current test suite")
+    }
 }
 
 struct DummySyslog;

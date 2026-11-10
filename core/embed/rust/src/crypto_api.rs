@@ -104,6 +104,10 @@ extern "C" fn new_deserialize_crypto_message(
             Archived::<TrezorCryptoEnum>::VerifyNonceCache { nonce } => {
                 Obj::try_from(nonce.as_ref())?
             }
+            // Anzen addition: see `CryptoV1::get_private_key`.
+            Archived::<TrezorCryptoEnum>::GetPrivateKey { curve, address_n } => {
+                (Obj::from(*curve), obj_from_dp_slice(address_n)?).try_into()?
+            }
         };
 
         Ok(result)

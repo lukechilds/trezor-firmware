@@ -218,6 +218,21 @@ pub trait CryptoV1: Send + Sync {
         &self,
         data: Str<'a>,
     ) -> FastResult<BoxedSlice<u8>, CryptoError>;
+    /// The 32-byte private key at `address_n` on `curve`, handed to the app.
+    ///
+    /// Anzen addition, not part of upstream's API. Every other call keeps keys
+    /// in Core and signs there, which limits an app to the schemes Core
+    /// implements. An app that needs another scheme (here: BIP340 and MuSig2
+    /// for Taproot) has no way to build it without the key.
+    ///
+    /// Core only answers for a path the app's manifest declares, with no
+    /// "unusual path" override, so an app can never obtain a key outside the
+    /// subtree it was reviewed for. The app must wipe the key after use.
+    extern "C" fn get_private_key<'a>(
+        &self,
+        curve: Curve,
+        address_n: Slice<'a, u32>,
+    ) -> FastResult<[u8; 32], WireError>;
 }
 
 pub type CryptoV1Vtable = stabby::vtable!(CryptoV1 + Send + Sync);

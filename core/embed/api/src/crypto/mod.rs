@@ -418,4 +418,20 @@ impl CryptoV1 for TrezorCryptoV1Impl {
             .map_err(|_| CryptoError::InvalidEncoding)
             .into()
     }
+
+    // Anzen addition: see `CryptoV1::get_private_key`.
+    extern "C" fn get_private_key<'a>(
+        &self,
+        curve: Curve,
+        address_n: Slice<'a, u32>,
+    ) -> FastResult<[u8; 32], WireError> {
+        (|| {
+            let data = ipc_crypto_call(&TrezorCryptoEnum::GetPrivateKey {
+                curve: curve as u8,
+                address_n: address_n.as_slice().into(),
+            })?;
+            expect_array::<32>(&data)
+        })()
+        .into()
+    }
 }
