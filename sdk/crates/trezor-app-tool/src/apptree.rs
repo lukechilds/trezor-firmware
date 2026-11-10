@@ -15,12 +15,14 @@ pub fn generate() -> Result<()> {
     let apps = artifacts::artifact_with_ext("bin")?;
     ensure!(!apps.is_empty(), "No generated app images found");
 
-    // Hardcoded: the sdk/apps workspace root is always two levels below the
-    // trezor-firmware repo root (<repo>/sdk/apps).
-    let repo_root = helpers::root_dir()?
-        .parent()
-        .and_then(Path::parent)
-        .context("Failed to resolve repo root from the sdk/apps workspace root")?
+    // The tool is run from its place in the trezor-firmware checkout
+    // (<repo>/sdk/crates/trezor-app-tool), which is where the repo root is
+    // found from: an app's own workspace may be anywhere, inside the repo
+    // (<repo>/sdk/apps) or outside it.
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .context("Failed to resolve repo root from the app-tool's own location")?
         .to_path_buf();
 
     let artifacts_serialized_dir = helpers::artifacts_serialized_dir()?;
